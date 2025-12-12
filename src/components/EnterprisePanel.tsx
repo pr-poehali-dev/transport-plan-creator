@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,12 +41,10 @@ interface Enterprise {
   id: number;
   name: string;
   location: string;
+  lat?: number;
+  lng?: number;
   consumed: ProductItem[];
   produced: ProductItem[];
-  consumedProduct?: string;
-  consumedVolume?: number;
-  producedProduct?: string;
-  producedVolume?: number;
   monthlyConsumption: number;
   monthlyProduction: number;
 }
@@ -50,31 +54,12 @@ const initialEnterprises: Enterprise[] = [
     id: 1,
     name: 'Завод "ПромСнаб"',
     location: 'Барнаул, Павловский тракт 45',
+    lat: 53.348,
+    lng: 83.776,
     consumed: [{ product: 'Нефть', volume: 280 }],
     produced: [{ product: 'Бензин АИ-95', volume: 180 }],
     monthlyConsumption: 280,
     monthlyProduction: 180,
-  },
-  {
-    id: 2,
-    name: 'Завод "Индустрия"',
-    location: 'Бийск, Промышленная зона 12',
-    consumed: [{ product: 'Нефть', volume: 350 }],
-    produced: [{ product: 'Дизель', volume: 220 }],
-    monthlyConsumption: 350,
-    monthlyProduction: 220,
-  },
-  {
-    id: 3,
-    name: 'Завод "НефтеХим"',
-    location: 'Рубцовск, Заводской проезд 8',
-    consumed: [{ product: 'Нефть', volume: 420 }],
-    produced: [
-      { product: 'Бензин АИ-92', volume: 180 },
-      { product: 'Дизель', volume: 100 },
-    ],
-    monthlyConsumption: 420,
-    monthlyProduction: 280,
   },
 ];
 
@@ -82,9 +67,8 @@ export default function EnterprisePanel() {
   const [enterprises, setEnterprises] = useState<Enterprise[]>(() => {
     const saved = localStorage.getItem('enterprises');
     if (!saved) return initialEnterprises;
-    
     const parsed = JSON.parse(saved);
-    return parsed.map((e: Enterprise) => {
+    return parsed.map((e: any) => {
       if (!e.consumed && e.consumedProduct) {
         e.consumed = [{ product: e.consumedProduct, volume: e.consumedVolume || 0 }];
       }
@@ -95,19 +79,27 @@ export default function EnterprisePanel() {
     });
   });
 
+  const [availableProducts, setAvailableProducts] = useState<any[]>([]);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editEnterprise, setEditEnterprise] = useState<Enterprise | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    location: '',
-  });
+  const [formData, setFormData] = useState({ name: '', location: '', lat: '', lng: '' });
   const [consumedProducts, setConsumedProducts] = useState<{ product: string; volume: string }[]>([
     { product: '', volume: '' },
   ]);
   const [producedProducts, setProducedProducts] = useState<{ product: string; volume: string }[]>([
     { product: '', volume: '' },
   ]);
+
+  useEffect(() => {
+    const loadProducts = () => {
+      const saved = localStorage.getItem('products');
+      setAvailableProducts(saved ? JSON.parse(saved) : []);
+    };
+    loadProducts();
+    window.addEventListener('storage', loadProducts);
+    return () => window.removeEventListener('storage', loadProducts);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('enterprises', JSON.stringify(enterprises));
@@ -117,21 +109,14 @@ export default function EnterprisePanel() {
   const handleDelete = () => {
     if (deleteId) {
       setEnterprises(enterprises.filter((e) => e.id !== deleteId));
-      toast({
-        title: 'Предприятие удалено',
-        description: 'Предприятие успешно удалено из системы',
-      });
+      toast({ title: 'Предприятие удалено', description: 'Предприятие успешно удалено из системы' });
       setDeleteId(null);
     }
   };
 
   const handleAdd = () => {
     if (!formData.name || !formData.location) {
-      toast({
-        title: 'Ошибка',
-        description: 'Заполните название и адрес',
-        variant: 'destructive',
-      });
+      toast({ title: 'Ошибка', description: 'Заполните название и адрес', variant: 'destructive' });
       return;
     }
 
@@ -147,20 +132,15 @@ export default function EnterprisePanel() {
       return;
     }
 
-    const consumed = validConsumed.map((p) => ({
-      product: p.product,
-      volume: parseInt(p.volume),
-    }));
-
-    const produced = validProduced.map((p) => ({
-      product: p.product,
-      volume: parseInt(p.volume),
-    }));
+    const consumed = validConsumed.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
+    const produced = validProduced.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
 
     const newEnterprise: Enterprise = {
       id: Math.max(0, ...enterprises.map((e) => e.id)) + 1,
       name: formData.name,
       location: formData.location,
+      lat: formData.lat ? parseFloat(formData.lat) : undefined,
+      lng: formData.lng ? parseFloat(formData.lng) : undefined,
       consumed,
       produced,
       monthlyConsumption: consumed.reduce((sum, p) => sum + p.volume, 0),
@@ -168,10 +148,7 @@ export default function EnterprisePanel() {
     };
 
     setEnterprises([...enterprises, newEnterprise]);
-    toast({
-      title: 'Предприятие добавлено',
-      description: 'Новое предприятие успешно добавлено в систему',
-    });
+    toast({ title: 'Предприятие добавлено', description: 'Новое предприятие успешно добавлено в систему' });
     setIsAddDialogOpen(false);
     resetForm();
   };
@@ -180,11 +157,7 @@ export default function EnterprisePanel() {
     if (!editEnterprise) return;
 
     if (!formData.name || !formData.location) {
-      toast({
-        title: 'Ошибка',
-        description: 'Заполните название и адрес',
-        variant: 'destructive',
-      });
+      toast({ title: 'Ошибка', description: 'Заполните название и адрес', variant: 'destructive' });
       return;
     }
 
@@ -200,20 +173,15 @@ export default function EnterprisePanel() {
       return;
     }
 
-    const consumed = validConsumed.map((p) => ({
-      product: p.product,
-      volume: parseInt(p.volume),
-    }));
-
-    const produced = validProduced.map((p) => ({
-      product: p.product,
-      volume: parseInt(p.volume),
-    }));
+    const consumed = validConsumed.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
+    const produced = validProduced.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
 
     const updatedEnterprise: Enterprise = {
       ...editEnterprise,
       name: formData.name,
       location: formData.location,
+      lat: formData.lat ? parseFloat(formData.lat) : undefined,
+      lng: formData.lng ? parseFloat(formData.lng) : undefined,
       consumed,
       produced,
       monthlyConsumption: consumed.reduce((sum, p) => sum + p.volume, 0),
@@ -221,16 +189,13 @@ export default function EnterprisePanel() {
     };
 
     setEnterprises(enterprises.map((e) => (e.id === editEnterprise.id ? updatedEnterprise : e)));
-    toast({
-      title: 'Предприятие обновлено',
-      description: 'Информация о предприятии успешно обновлена',
-    });
+    toast({ title: 'Предприятие обновлено', description: 'Информация о предприятии успешно обновлена' });
     setEditEnterprise(null);
     resetForm();
   };
 
   const resetForm = () => {
-    setFormData({ name: '', location: '' });
+    setFormData({ name: '', location: '', lat: '', lng: '' });
     setConsumedProducts([{ product: '', volume: '' }]);
     setProducedProducts([{ product: '', volume: '' }]);
   };
@@ -240,19 +205,11 @@ export default function EnterprisePanel() {
     setFormData({
       name: enterprise.name,
       location: enterprise.location,
+      lat: enterprise.lat?.toString() || '',
+      lng: enterprise.lng?.toString() || '',
     });
-    setConsumedProducts(
-      enterprise.consumed.map((p) => ({
-        product: p.product,
-        volume: p.volume.toString(),
-      }))
-    );
-    setProducedProducts(
-      enterprise.produced.map((p) => ({
-        product: p.product,
-        volume: p.volume.toString(),
-      }))
-    );
+    setConsumedProducts(enterprise.consumed.map((p) => ({ product: p.product, volume: p.volume.toString() })));
+    setProducedProducts(enterprise.produced.map((p) => ({ product: p.product, volume: p.volume.toString() })));
   };
 
   const openAddDialog = () => {
@@ -318,9 +275,9 @@ export default function EnterprisePanel() {
               <TableRow>
                 <TableHead>Название</TableHead>
                 <TableHead>Адрес</TableHead>
+                <TableHead>Координаты</TableHead>
                 <TableHead>Потребление</TableHead>
                 <TableHead>Производство</TableHead>
-                <TableHead>Объем/месяц</TableHead>
                 <TableHead className="text-right">Действия</TableHead>
               </TableRow>
             </TableHeader>
@@ -329,6 +286,11 @@ export default function EnterprisePanel() {
                 <TableRow key={enterprise.id}>
                   <TableCell className="font-medium">{enterprise.name}</TableCell>
                   <TableCell className="text-muted-foreground">{enterprise.location}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {enterprise.lat && enterprise.lng
+                      ? `${enterprise.lat.toFixed(4)}, ${enterprise.lng.toFixed(4)}`
+                      : 'Не указаны'}
+                  </TableCell>
                   <TableCell>
                     <div className="text-xs space-y-1">
                       {enterprise.consumed.map((c, idx) => (
@@ -347,19 +309,10 @@ export default function EnterprisePanel() {
                       ))}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="text-xs space-y-1">
-                      <div className="text-orange-600">↓ {enterprise.monthlyConsumption} м³</div>
-                      <div className="text-green-600">↑ {enterprise.monthlyProduction} м³</div>
-                    </div>
-                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
                       <Button variant="ghost" size="sm" onClick={() => openEditDialog(enterprise)}>
                         <Icon name="Edit" size={16} />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Icon name="MapPin" size={16} />
                       </Button>
                       <Button
                         variant="ghost"
@@ -378,85 +331,35 @@ export default function EnterprisePanel() {
         </div>
       </Card>
 
-      <Dialog
-        open={isAddDialogOpen || editEnterprise !== null}
-        onOpenChange={() => {
-          setIsAddDialogOpen(false);
-          setEditEnterprise(null);
-        }}
-      >
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <Dialog open={isAddDialogOpen || editEnterprise !== null} onOpenChange={() => { setIsAddDialogOpen(false); setEditEnterprise(null); }}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editEnterprise ? 'Редактировать предприятие' : 'Добавить предприятие'}</DialogTitle>
             <DialogDescription>Заполните информацию о предприятии</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Название предприятия</Label>
-              <Input
-                id="name"
-                placeholder='Завод "ПромСнаб"'
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="location">Адрес</Label>
-              <Input
-                id="location"
-                placeholder="Барнаул, Павловский тракт 45"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2"><Label>Название</Label><Input placeholder='Завод "ПромСнаб"' value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+              <div className="col-span-2"><Label>Адрес</Label><Input placeholder="Барнаул, Павловский тракт 45" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} /></div>
+              <div><Label>Широта (lat)</Label><Input type="number" step="0.000001" placeholder="53.348" value={formData.lat} onChange={(e) => setFormData({ ...formData, lat: e.target.value })} /></div>
+              <div><Label>Долгота (lng)</Label><Input type="number" step="0.000001" placeholder="83.776" value={formData.lng} onChange={(e) => setFormData({ ...formData, lng: e.target.value })} /></div>
             </div>
             
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label>Потребляемая продукция</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setConsumedProducts([...consumedProducts, { product: '', volume: '' }])}
-                >
-                  <Icon name="Plus" size={14} className="mr-1" />
-                  Добавить
+                <Button type="button" variant="outline" size="sm" onClick={() => setConsumedProducts([...consumedProducts, { product: '', volume: '' }])}>
+                  <Icon name="Plus" size={14} className="mr-1" />Добавить
                 </Button>
               </div>
               {consumedProducts.map((product, index) => (
                 <div key={index} className="flex gap-2 mb-2">
-                  <Input
-                    placeholder="Название продукции"
-                    value={product.product}
-                    onChange={(e) => {
-                      const updated = [...consumedProducts];
-                      updated[index].product = e.target.value;
-                      setConsumedProducts(updated);
-                    }}
-                    className="flex-1"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Объем (м³/мес)"
-                    value={product.volume}
-                    onChange={(e) => {
-                      const updated = [...consumedProducts];
-                      updated[index].volume = e.target.value;
-                      setConsumedProducts(updated);
-                    }}
-                    className="w-40"
-                  />
-                  {consumedProducts.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConsumedProducts(consumedProducts.filter((_, i) => i !== index))}
-                      className="text-destructive"
-                    >
-                      <Icon name="X" size={16} />
-                    </Button>
-                  )}
+                  <Select value={product.product} onValueChange={(value) => { const updated = [...consumedProducts]; updated[index].product = value; setConsumedProducts(updated); }}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Выберите продукцию" /></SelectTrigger>
+                    <SelectContent>{availableProducts.map((p) => (<SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>))}</SelectContent>
+                  </Select>
+                  <Input type="number" placeholder="Объем (м³/мес)" value={product.volume} onChange={(e) => { const updated = [...consumedProducts]; updated[index].volume = e.target.value; setConsumedProducts(updated); }} className="w-40" />
+                  {consumedProducts.length > 1 && (<Button type="button" variant="ghost" size="sm" onClick={() => setConsumedProducts(consumedProducts.filter((_, i) => i !== index))} className="text-destructive"><Icon name="X" size={16} /></Button>)}
                 </div>
               ))}
             </div>
@@ -464,67 +367,25 @@ export default function EnterprisePanel() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label>Производимая продукция</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setProducedProducts([...producedProducts, { product: '', volume: '' }])}
-                >
-                  <Icon name="Plus" size={14} className="mr-1" />
-                  Добавить
+                <Button type="button" variant="outline" size="sm" onClick={() => setProducedProducts([...producedProducts, { product: '', volume: '' }])}>
+                  <Icon name="Plus" size={14} className="mr-1" />Добавить
                 </Button>
               </div>
               {producedProducts.map((product, index) => (
                 <div key={index} className="flex gap-2 mb-2">
-                  <Input
-                    placeholder="Название продукции"
-                    value={product.product}
-                    onChange={(e) => {
-                      const updated = [...producedProducts];
-                      updated[index].product = e.target.value;
-                      setProducedProducts(updated);
-                    }}
-                    className="flex-1"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Объем (м³/мес)"
-                    value={product.volume}
-                    onChange={(e) => {
-                      const updated = [...producedProducts];
-                      updated[index].volume = e.target.value;
-                      setProducedProducts(updated);
-                    }}
-                    className="w-40"
-                  />
-                  {producedProducts.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setProducedProducts(producedProducts.filter((_, i) => i !== index))}
-                      className="text-destructive"
-                    >
-                      <Icon name="X" size={16} />
-                    </Button>
-                  )}
+                  <Select value={product.product} onValueChange={(value) => { const updated = [...producedProducts]; updated[index].product = value; setProducedProducts(updated); }}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Выберите продукцию" /></SelectTrigger>
+                    <SelectContent>{availableProducts.map((p) => (<SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>))}</SelectContent>
+                  </Select>
+                  <Input type="number" placeholder="Объем (м³/мес)" value={product.volume} onChange={(e) => { const updated = [...producedProducts]; updated[index].volume = e.target.value; setProducedProducts(updated); }} className="w-40" />
+                  {producedProducts.length > 1 && (<Button type="button" variant="ghost" size="sm" onClick={() => setProducedProducts(producedProducts.filter((_, i) => i !== index))} className="text-destructive"><Icon name="X" size={16} /></Button>)}
                 </div>
               ))}
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAddDialogOpen(false);
-                setEditEnterprise(null);
-              }}
-            >
-              Отмена
-            </Button>
-            <Button onClick={editEnterprise ? handleEdit : handleAdd}>
-              {editEnterprise ? 'Сохранить' : 'Добавить'}
-            </Button>
+            <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); setEditEnterprise(null); }}>Отмена</Button>
+            <Button onClick={editEnterprise ? handleEdit : handleAdd}>{editEnterprise ? 'Сохранить' : 'Добавить'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -533,19 +394,11 @@ export default function EnterprisePanel() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить предприятие?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Это действие нельзя отменить. Предприятие будет удалено из системы вместе со всей информацией о
-              потреблении и производстве.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Это действие нельзя отменить. Предприятие будет удалено из системы вместе со всей информацией.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Удалить
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Удалить</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

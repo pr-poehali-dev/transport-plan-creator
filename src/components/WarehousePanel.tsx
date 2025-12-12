@@ -5,6 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -36,6 +43,8 @@ interface Warehouse {
   id: number;
   name: string;
   location: string;
+  lat?: number;
+  lng?: number;
   products: Product[];
   totalVolume: number;
   status: string;
@@ -46,6 +55,8 @@ const initialWarehouses: Warehouse[] = [
     id: 1,
     name: 'Склад "Центральный"',
     location: 'Барнаул, ул. Промышленная 15',
+    lat: 53.356,
+    lng: 83.769,
     products: [
       { month: 'Декабрь 2025', product: 'Бензин АИ-95', volume: 450 },
       { month: 'Декабрь 2025', product: 'Дизель', volume: 320 },
@@ -57,19 +68,13 @@ const initialWarehouses: Warehouse[] = [
     id: 2,
     name: 'Склад "Северный"',
     location: 'Барнаул, Павловский тракт 82',
+    lat: 53.389,
+    lng: 83.736,
     products: [
       { month: 'Декабрь 2025', product: 'Бензин АИ-92', volume: 280 },
       { month: 'Декабрь 2025', product: 'Бензин АИ-95', volume: 190 },
     ],
     totalVolume: 470,
-    status: 'active',
-  },
-  {
-    id: 3,
-    name: 'Склад "Южный"',
-    location: 'Бийск, ул. Заводская 3',
-    products: [{ month: 'Декабрь 2025', product: 'Дизель', volume: 560 }],
-    totalVolume: 560,
     status: 'active',
   },
 ];
@@ -80,16 +85,29 @@ export default function WarehousePanel() {
     return saved ? JSON.parse(saved) : initialWarehouses;
   });
 
+  const [availableProducts, setAvailableProducts] = useState<any[]>([]);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editWarehouse, setEditWarehouse] = useState<Warehouse | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     location: '',
+    lat: '',
+    lng: '',
   });
   const [products, setProducts] = useState<{ product: string; volume: string }[]>([
     { product: '', volume: '' },
   ]);
+
+  useEffect(() => {
+    const loadProducts = () => {
+      const saved = localStorage.getItem('products');
+      setAvailableProducts(saved ? JSON.parse(saved) : []);
+    };
+    loadProducts();
+    window.addEventListener('storage', loadProducts);
+    return () => window.removeEventListener('storage', loadProducts);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('warehouses', JSON.stringify(warehouses));
@@ -131,6 +149,8 @@ export default function WarehousePanel() {
       id: Math.max(0, ...warehouses.map((w) => w.id)) + 1,
       name: formData.name,
       location: formData.location,
+      lat: formData.lat ? parseFloat(formData.lat) : undefined,
+      lng: formData.lng ? parseFloat(formData.lng) : undefined,
       products: validProducts.map((p) => ({
         month: 'Декабрь 2025',
         product: p.product,
@@ -146,8 +166,7 @@ export default function WarehousePanel() {
       description: 'Новый склад успешно добавлен в систему',
     });
     setIsAddDialogOpen(false);
-    setFormData({ name: '', location: '' });
-    setProducts([{ product: '', volume: '' }]);
+    resetForm();
   };
 
   const handleEdit = () => {
@@ -176,6 +195,8 @@ export default function WarehousePanel() {
       ...editWarehouse,
       name: formData.name,
       location: formData.location,
+      lat: formData.lat ? parseFloat(formData.lat) : undefined,
+      lng: formData.lng ? parseFloat(formData.lng) : undefined,
       products: validProducts.map((p) => ({
         month: 'Декабрь 2025',
         product: p.product,
@@ -190,7 +211,11 @@ export default function WarehousePanel() {
       description: 'Информация о складе успешно обновлена',
     });
     setEditWarehouse(null);
-    setFormData({ name: '', location: '' });
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setFormData({ name: '', location: '', lat: '', lng: '' });
     setProducts([{ product: '', volume: '' }]);
   };
 
@@ -199,6 +224,8 @@ export default function WarehousePanel() {
     setFormData({
       name: warehouse.name,
       location: warehouse.location,
+      lat: warehouse.lat?.toString() || '',
+      lng: warehouse.lng?.toString() || '',
     });
     setProducts(
       warehouse.products.map((p) => ({
@@ -209,8 +236,7 @@ export default function WarehousePanel() {
   };
 
   const openAddDialog = () => {
-    setFormData({ name: '', location: '' });
-    setProducts([{ product: '', volume: '' }]);
+    resetForm();
     setIsAddDialogOpen(true);
   };
 
@@ -283,9 +309,9 @@ export default function WarehousePanel() {
               <TableRow>
                 <TableHead>Название</TableHead>
                 <TableHead>Адрес</TableHead>
+                <TableHead>Координаты</TableHead>
                 <TableHead>Продукция</TableHead>
                 <TableHead>Общий объем</TableHead>
-                <TableHead>Статус</TableHead>
                 <TableHead className="text-right">Действия</TableHead>
               </TableRow>
             </TableHeader>
@@ -294,6 +320,11 @@ export default function WarehousePanel() {
                 <TableRow key={warehouse.id}>
                   <TableCell className="font-medium">{warehouse.name}</TableCell>
                   <TableCell className="text-muted-foreground">{warehouse.location}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {warehouse.lat && warehouse.lng
+                      ? `${warehouse.lat.toFixed(4)}, ${warehouse.lng.toFixed(4)}`
+                      : 'Не указаны'}
+                  </TableCell>
                   <TableCell>
                     <div className="space-y-1">
                       {warehouse.products.map((p, idx) => (
@@ -306,18 +337,10 @@ export default function WarehousePanel() {
                   <TableCell>
                     <span className="font-semibold">{warehouse.totalVolume} м³</span>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      Активен
-                    </Badge>
-                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
                       <Button variant="ghost" size="sm" onClick={() => openEditDialog(warehouse)}>
                         <Icon name="Edit" size={16} />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Icon name="MapPin" size={16} />
                       </Button>
                       <Button
                         variant="ghost"
@@ -343,29 +366,53 @@ export default function WarehousePanel() {
           setEditWarehouse(null);
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editWarehouse ? 'Редактировать склад' : 'Добавить склад'}</DialogTitle>
             <DialogDescription>Заполните информацию о складе</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Название склада</Label>
-              <Input
-                id="name"
-                placeholder='Склад "Центральный"'
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="location">Адрес</Label>
-              <Input
-                id="location"
-                placeholder="Барнаул, ул. Промышленная 15"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label htmlFor="name">Название склада</Label>
+                <Input
+                  id="name"
+                  placeholder='Склад "Центральный"'
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="location">Адрес</Label>
+                <Input
+                  id="location"
+                  placeholder="Барнаул, ул. Промышленная 15"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="lat">Широта (lat)</Label>
+                <Input
+                  id="lat"
+                  type="number"
+                  step="0.000001"
+                  placeholder="53.356"
+                  value={formData.lat}
+                  onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="lng">Долгота (lng)</Label>
+                <Input
+                  id="lng"
+                  type="number"
+                  step="0.000001"
+                  placeholder="83.769"
+                  value={formData.lng}
+                  onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
+                />
+              </div>
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -377,12 +424,21 @@ export default function WarehousePanel() {
               </div>
               {products.map((product, index) => (
                 <div key={index} className="flex gap-2 mb-2">
-                  <Input
-                    placeholder="Название продукции"
+                  <Select
                     value={product.product}
-                    onChange={(e) => updateProduct(index, 'product', e.target.value)}
-                    className="flex-1"
-                  />
+                    onValueChange={(value) => updateProduct(index, 'product', value)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Выберите продукцию" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableProducts.map((p) => (
+                        <SelectItem key={p.id} value={p.name}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
                     type="number"
                     placeholder="Объем (м³)"

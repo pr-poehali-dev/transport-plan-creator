@@ -17,6 +17,8 @@ export default function MapView() {
         name: w.name,
         type: 'warehouse',
         location: w.location,
+        lat: w.lat,
+        lng: w.lng,
         products: w.products,
         totalVolume: w.totalVolume,
       })),
@@ -25,6 +27,8 @@ export default function MapView() {
         name: e.name,
         type: 'enterprise',
         location: e.location,
+        lat: e.lat,
+        lng: e.lng,
         consumed: e.consumed || [{ product: e.consumedProduct, volume: e.consumedVolume }],
         produced: e.produced || [{ product: e.producedProduct, volume: e.producedVolume }],
       })),
@@ -49,46 +53,49 @@ export default function MapView() {
           });
 
           locations.forEach((location) => {
-            (window as any).ymaps.geocode(location.location).then((res: any) => {
-              const firstGeoObject = res.geoObjects.get(0);
-              if (firstGeoObject) {
-                const coords = firstGeoObject.geometry.getCoordinates();
+            const createMarker = (coords: number[]) => {
+              let balloonContent = `<div style="padding: 8px; max-width: 250px;">
+                <strong>${location.name}</strong><br/>
+                <span style="color: #666; font-size: 12px;">${location.location}</span><br/><br/>`;
 
-                let balloonContent = `<div style="padding: 8px; max-width: 250px;">
-                  <strong>${location.name}</strong><br/>
-                  <span style="color: #666; font-size: 12px;">${location.location}</span><br/><br/>`;
-
-                if (location.type === 'warehouse') {
-                  balloonContent += '<strong>Остатки:</strong><br/>';
-                  location.products.forEach((p: any) => {
-                    balloonContent += `<span style="font-size: 12px;">• ${p.product}: ${p.volume} м³</span><br/>`;
-                  });
-                  balloonContent += `<br/><strong>Общий объем:</strong> ${location.totalVolume} м³`;
-                } else {
-                  balloonContent += '<strong>Потребление:</strong><br/>';
-                  location.consumed.forEach((c: any) => {
-                    balloonContent += `<span style="font-size: 12px;">• ${c.product}: ${c.volume} м³/мес</span><br/>`;
-                  });
-                  balloonContent += '<br/><strong>Производство:</strong><br/>';
-                  location.produced.forEach((p: any) => {
-                    balloonContent += `<span style="font-size: 12px;">• ${p.product}: ${p.volume} м³/мес</span><br/>`;
-                  });
-                }
-
-                balloonContent += '</div>';
-
-                const placemark = new (window as any).ymaps.Placemark(
-                  coords,
-                  {
-                    balloonContent: balloonContent,
-                  },
-                  {
-                    preset: location.type === 'warehouse' ? 'islands#blueIcon' : 'islands#greenIcon',
-                  }
-                );
-                map.geoObjects.add(placemark);
+              if (location.type === 'warehouse') {
+                balloonContent += '<strong>Остатки:</strong><br/>';
+                location.products.forEach((p: any) => {
+                  balloonContent += `<span style="font-size: 12px;">• ${p.product}: ${p.volume} м³</span><br/>`;
+                });
+                balloonContent += `<br/><strong>Общий объем:</strong> ${location.totalVolume} м³`;
+              } else {
+                balloonContent += '<strong>Потребление:</strong><br/>';
+                location.consumed.forEach((c: any) => {
+                  balloonContent += `<span style="font-size: 12px;">• ${c.product}: ${c.volume} м³/мес</span><br/>`;
+                });
+                balloonContent += '<br/><strong>Производство:</strong><br/>';
+                location.produced.forEach((p: any) => {
+                  balloonContent += `<span style="font-size: 12px;">• ${p.product}: ${p.volume} м³/мес</span><br/>`;
+                });
               }
-            });
+
+              balloonContent += '</div>';
+
+              const placemark = new (window as any).ymaps.Placemark(
+                coords,
+                { balloonContent: balloonContent },
+                { preset: location.type === 'warehouse' ? 'islands#blueIcon' : 'islands#greenIcon' }
+              );
+              map.geoObjects.add(placemark);
+            };
+
+            if (location.lat && location.lng) {
+              createMarker([location.lat, location.lng]);
+            } else {
+              (window as any).ymaps.geocode(location.location).then((res: any) => {
+                const firstGeoObject = res.geoObjects.get(0);
+                if (firstGeoObject) {
+                  const coords = firstGeoObject.geometry.getCoordinates();
+                  createMarker(coords);
+                }
+              });
+            }
           });
         });
       }
