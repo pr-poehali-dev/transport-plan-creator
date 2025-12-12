@@ -1,6 +1,3 @@
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import Icon from '@/components/ui/icon';
 import { useEffect, useRef, useState } from 'react';
 
 export default function MapView() {
@@ -115,71 +112,5 @@ export default function MapView() {
     };
   }, [locations]);
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <Card className="lg:col-span-2 overflow-hidden">
-        <div ref={mapRef} className="w-full h-[600px] bg-muted"></div>
-      </Card>
-
-      <div className="space-y-4">
-        <Card className="p-4">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <Icon name="MapPin" size={18} />
-            Объекты на карте
-          </h3>
-          <div className="space-y-3">
-            {locations.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Нет объектов для отображения
-              </p>
-            ) : (
-              locations.map((location) => (
-                <div key={location.id} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      location.type === 'warehouse' ? 'bg-blue-100' : 'bg-green-100'
-                    }`}
-                  >
-                    <Icon
-                      name={location.type === 'warehouse' ? 'Warehouse' : 'Factory'}
-                      size={18}
-                      className={location.type === 'warehouse' ? 'text-blue-600' : 'text-green-600'}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{location.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{location.location}</p>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {location.type === 'warehouse' ? 'Склад' : 'Завод'}
-                  </Badge>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <h3 className="font-semibold mb-4 flex items-center gap-2">
-            <Icon name="TrendingUp" size={18} />
-            Статистика перевозок
-          </h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Сегодня</span>
-              <span className="font-semibold">18 рейсов</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">На этой неделе</span>
-              <span className="font-semibold">127 рейсов</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">За месяц</span>
-              <span className="font-semibold">542 рейса</span>
-            </div>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
+  return <div ref={mapRef} className="w-full h-full bg-muted"></div>;
 }
