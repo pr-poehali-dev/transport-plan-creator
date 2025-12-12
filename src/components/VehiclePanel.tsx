@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,53 +14,93 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 
+interface Vehicle {
+  id: number;
+  brand: string;
+  trailerType: string;
+  volume: number;
+  productTypes: string[];
+  enterprise: string;
+  schedule: string;
+  status: string;
+}
+
+const initialVehicles: Vehicle[] = [
+  {
+    id: 1,
+    brand: 'КАМАЗ 65115',
+    trailerType: 'Цистерна',
+    volume: 20,
+    productTypes: ['Бензин АИ-95', 'Бензин АИ-92'],
+    enterprise: 'Завод "ПромСнаб"',
+    schedule: '5/2 (8:00-20:00)',
+    status: 'active',
+  },
+  {
+    id: 2,
+    brand: 'MAN TGX 18.500',
+    trailerType: 'Цистерна',
+    volume: 25,
+    productTypes: ['Дизель'],
+    enterprise: 'Завод "Индустрия"',
+    schedule: '24/7',
+    status: 'active',
+  },
+  {
+    id: 3,
+    brand: 'Volvo FH16',
+    trailerType: 'Цистерна',
+    volume: 30,
+    productTypes: ['Бензин АИ-95', 'Дизель'],
+    enterprise: 'Завод "НефтеХим"',
+    schedule: '6/1 (7:00-19:00)',
+    status: 'active',
+  },
+  {
+    id: 4,
+    brand: 'КАМАЗ 43118',
+    trailerType: 'Цистерна',
+    volume: 18,
+    productTypes: ['Бензин АИ-92'],
+    enterprise: 'Завод "ПромСнаб"',
+    schedule: '5/2 (9:00-18:00)',
+    status: 'maintenance',
+  },
+];
+
 export default function VehiclePanel() {
-  const [vehicles, setVehicles] = useState([
-    {
-      id: 1,
-      brand: 'КАМАЗ 65115',
-      trailerType: 'Цистерна',
-      volume: 20,
-      productTypes: ['Бензин АИ-95', 'Бензин АИ-92'],
-      enterprise: 'Завод "ПромСнаб"',
-      schedule: '5/2 (8:00-20:00)',
-      status: 'active',
-    },
-    {
-      id: 2,
-      brand: 'MAN TGX 18.500',
-      trailerType: 'Цистерна',
-      volume: 25,
-      productTypes: ['Дизель'],
-      enterprise: 'Завод "Индустрия"',
-      schedule: '24/7',
-      status: 'active',
-    },
-    {
-      id: 3,
-      brand: 'Volvo FH16',
-      trailerType: 'Цистерна',
-      volume: 30,
-      productTypes: ['Бензин АИ-95', 'Дизель'],
-      enterprise: 'Завод "НефтеХим"',
-      schedule: '6/1 (7:00-19:00)',
-      status: 'active',
-    },
-    {
-      id: 4,
-      brand: 'КАМАЗ 43118',
-      trailerType: 'Цистерна',
-      volume: 18,
-      productTypes: ['Бензин АИ-92'],
-      enterprise: 'Завод "ПромСнаб"',
-      schedule: '5/2 (9:00-18:00)',
-      status: 'maintenance',
-    },
-  ]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
+    const saved = localStorage.getItem('vehicles');
+    return saved ? JSON.parse(saved) : initialVehicles;
+  });
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    brand: '',
+    trailerType: '',
+    volume: '',
+    productTypes: '',
+    enterprise: '',
+    schedule: '',
+  });
+
+  useEffect(() => {
+    localStorage.setItem('vehicles', JSON.stringify(vehicles));
+  }, [vehicles]);
 
   const handleDelete = () => {
     if (deleteId) {
@@ -73,6 +113,101 @@ export default function VehiclePanel() {
     }
   };
 
+  const handleAdd = () => {
+    if (
+      !formData.brand ||
+      !formData.trailerType ||
+      !formData.volume ||
+      !formData.productTypes ||
+      !formData.enterprise ||
+      !formData.schedule
+    ) {
+      toast({
+        title: 'Ошибка',
+        description: 'Заполните все поля',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const newVehicle: Vehicle = {
+      id: Math.max(0, ...vehicles.map((v) => v.id)) + 1,
+      brand: formData.brand,
+      trailerType: formData.trailerType,
+      volume: parseInt(formData.volume),
+      productTypes: formData.productTypes.split(',').map((p) => p.trim()),
+      enterprise: formData.enterprise,
+      schedule: formData.schedule,
+      status: 'active',
+    };
+
+    setVehicles([...vehicles, newVehicle]);
+    toast({
+      title: 'Автомобиль добавлен',
+      description: 'Новое ТС успешно добавлено в автопарк',
+    });
+    setIsAddDialogOpen(false);
+    setFormData({ brand: '', trailerType: '', volume: '', productTypes: '', enterprise: '', schedule: '' });
+  };
+
+  const handleEdit = () => {
+    if (!editVehicle) return;
+
+    if (
+      !formData.brand ||
+      !formData.trailerType ||
+      !formData.volume ||
+      !formData.productTypes ||
+      !formData.enterprise ||
+      !formData.schedule
+    ) {
+      toast({
+        title: 'Ошибка',
+        description: 'Заполните все поля',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const updatedVehicle: Vehicle = {
+      ...editVehicle,
+      brand: formData.brand,
+      trailerType: formData.trailerType,
+      volume: parseInt(formData.volume),
+      productTypes: formData.productTypes.split(',').map((p) => p.trim()),
+      enterprise: formData.enterprise,
+      schedule: formData.schedule,
+    };
+
+    setVehicles(vehicles.map((v) => (v.id === editVehicle.id ? updatedVehicle : v)));
+    toast({
+      title: 'Автомобиль обновлен',
+      description: 'Информация о ТС успешно обновлена',
+    });
+    setEditVehicle(null);
+    setFormData({ brand: '', trailerType: '', volume: '', productTypes: '', enterprise: '', schedule: '' });
+  };
+
+  const openEditDialog = (vehicle: Vehicle) => {
+    setEditVehicle(vehicle);
+    setFormData({
+      brand: vehicle.brand,
+      trailerType: vehicle.trailerType,
+      volume: vehicle.volume.toString(),
+      productTypes: vehicle.productTypes.join(', '),
+      enterprise: vehicle.enterprise,
+      schedule: vehicle.schedule,
+    });
+  };
+
+  const openAddDialog = () => {
+    setFormData({ brand: '', trailerType: '', volume: '', productTypes: '', enterprise: '', schedule: '' });
+    setIsAddDialogOpen(true);
+  };
+
+  const activeVehicles = vehicles.filter((v) => v.status === 'active').length;
+  const maintenanceVehicles = vehicles.filter((v) => v.status === 'maintenance').length;
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -80,7 +215,7 @@ export default function VehiclePanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Всего ТС</p>
-              <p className="text-3xl font-bold mt-1">45</p>
+              <p className="text-3xl font-bold mt-1">{vehicles.length}</p>
             </div>
             <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
               <Icon name="Truck" size={24} className="text-orange-500" />
@@ -91,7 +226,7 @@ export default function VehiclePanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">На линии</p>
-              <p className="text-3xl font-bold mt-1">38</p>
+              <p className="text-3xl font-bold mt-1">{activeVehicles}</p>
             </div>
             <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
               <Icon name="Activity" size={24} className="text-green-500" />
@@ -102,7 +237,7 @@ export default function VehiclePanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">В обслуживании</p>
-              <p className="text-3xl font-bold mt-1">7</p>
+              <p className="text-3xl font-bold mt-1">{maintenanceVehicles}</p>
             </div>
             <div className="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
               <Icon name="Wrench" size={24} className="text-yellow-500" />
@@ -113,7 +248,9 @@ export default function VehiclePanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Общая загрузка</p>
-              <p className="text-3xl font-bold mt-1">87%</p>
+              <p className="text-3xl font-bold mt-1">
+                {vehicles.length > 0 ? Math.round((activeVehicles / vehicles.length) * 100) : 0}%
+              </p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
               <Icon name="BarChart3" size={24} className="text-blue-500" />
@@ -126,10 +263,16 @@ export default function VehiclePanel() {
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Автопарк</h3>
-            <Button variant="outline" size="sm">
-              <Icon name="Upload" size={16} className="mr-2" />
-              Импорт из Excel
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">
+                <Icon name="Upload" size={16} className="mr-2" />
+                Импорт из Excel
+              </Button>
+              <Button size="sm" onClick={openAddDialog}>
+                <Icon name="Plus" size={16} className="mr-2" />
+                Добавить ТС
+              </Button>
+            </div>
           </div>
           <Table>
             <TableHeader>
@@ -176,7 +319,7 @@ export default function VehiclePanel() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(vehicle)}>
                         <Icon name="Edit" size={16} />
                       </Button>
                       <Button variant="ghost" size="sm">
@@ -199,6 +342,92 @@ export default function VehiclePanel() {
         </div>
       </Card>
 
+      <Dialog
+        open={isAddDialogOpen || editVehicle !== null}
+        onOpenChange={() => {
+          setIsAddDialogOpen(false);
+          setEditVehicle(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editVehicle ? 'Редактировать автомобиль' : 'Добавить автомобиль'}</DialogTitle>
+            <DialogDescription>Заполните информацию о транспортном средстве</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="brand">Марка</Label>
+              <Input
+                id="brand"
+                placeholder="КАМАЗ 65115"
+                value={formData.brand}
+                onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="trailerType">Тип прицепа</Label>
+              <Input
+                id="trailerType"
+                placeholder="Цистерна"
+                value={formData.trailerType}
+                onChange={(e) => setFormData({ ...formData, trailerType: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="volume">Объем (м³)</Label>
+              <Input
+                id="volume"
+                type="number"
+                placeholder="20"
+                value={formData.volume}
+                onChange={(e) => setFormData({ ...formData, volume: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="productTypes">Виды продукции (через запятую)</Label>
+              <Input
+                id="productTypes"
+                placeholder="Бензин АИ-95, Дизель"
+                value={formData.productTypes}
+                onChange={(e) => setFormData({ ...formData, productTypes: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="enterprise">Предприятие</Label>
+              <Input
+                id="enterprise"
+                placeholder='Завод "ПромСнаб"'
+                value={formData.enterprise}
+                onChange={(e) => setFormData({ ...formData, enterprise: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="schedule">График работы</Label>
+              <Input
+                id="schedule"
+                placeholder="5/2 (8:00-20:00)"
+                value={formData.schedule}
+                onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddDialogOpen(false);
+                setEditVehicle(null);
+              }}
+            >
+              Отмена
+            </Button>
+            <Button onClick={editVehicle ? handleEdit : handleAdd}>
+              {editVehicle ? 'Сохранить' : 'Добавить'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -210,7 +439,10 @@ export default function VehiclePanel() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>

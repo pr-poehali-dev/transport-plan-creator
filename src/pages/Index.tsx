@@ -89,10 +89,6 @@ export default function Index() {
               <Icon name="Download" size={16} className="mr-2" />
               Экспорт
             </Button>
-            <Button size="sm">
-              <Icon name="Plus" size={16} className="mr-2" />
-              Добавить
-            </Button>
           </div>
         </header>
 

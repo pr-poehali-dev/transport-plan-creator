@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,46 +14,87 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 
+interface Enterprise {
+  id: number;
+  name: string;
+  location: string;
+  consumedProduct: string;
+  consumedVolume: number;
+  producedProduct: string;
+  producedVolume: number;
+  monthlyConsumption: number;
+  monthlyProduction: number;
+}
+
+const initialEnterprises: Enterprise[] = [
+  {
+    id: 1,
+    name: 'Завод "ПромСнаб"',
+    location: 'Барнаул, Павловский тракт 45',
+    consumedProduct: 'Нефть',
+    consumedVolume: 280,
+    producedProduct: 'Бензин АИ-95',
+    producedVolume: 180,
+    monthlyConsumption: 280,
+    monthlyProduction: 180,
+  },
+  {
+    id: 2,
+    name: 'Завод "Индустрия"',
+    location: 'Бийск, Промышленная зона 12',
+    consumedProduct: 'Нефть',
+    consumedVolume: 350,
+    producedProduct: 'Дизель',
+    producedVolume: 220,
+    monthlyConsumption: 350,
+    monthlyProduction: 220,
+  },
+  {
+    id: 3,
+    name: 'Завод "НефтеХим"',
+    location: 'Рубцовск, Заводской проезд 8',
+    consumedProduct: 'Нефть',
+    consumedVolume: 420,
+    producedProduct: 'Бензин АИ-92',
+    producedVolume: 280,
+    monthlyConsumption: 420,
+    monthlyProduction: 280,
+  },
+];
+
 export default function EnterprisePanel() {
-  const [enterprises, setEnterprises] = useState([
-    {
-      id: 1,
-      name: 'Завод "ПромСнаб"',
-      location: 'Москва, Каширское шоссе 45',
-      consumedProduct: 'Нефть',
-      consumedVolume: 280,
-      producedProduct: 'Бензин АИ-95',
-      producedVolume: 180,
-      monthlyConsumption: 280,
-      monthlyProduction: 180,
-    },
-    {
-      id: 2,
-      name: 'Завод "Индустрия"',
-      location: 'Подольск, Промышленная зона 12',
-      consumedProduct: 'Нефть',
-      consumedVolume: 350,
-      producedProduct: 'Дизель',
-      producedVolume: 220,
-      monthlyConsumption: 350,
-      monthlyProduction: 220,
-    },
-    {
-      id: 3,
-      name: 'Завод "НефтеХим"',
-      location: 'Химки, Заводской проезд 8',
-      consumedProduct: 'Нефть',
-      consumedVolume: 420,
-      producedProduct: 'Бензин АИ-92',
-      producedVolume: 280,
-      monthlyConsumption: 420,
-      monthlyProduction: 280,
-    },
-  ]);
+  const [enterprises, setEnterprises] = useState<Enterprise[]>(() => {
+    const saved = localStorage.getItem('enterprises');
+    return saved ? JSON.parse(saved) : initialEnterprises;
+  });
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [editEnterprise, setEditEnterprise] = useState<Enterprise | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    location: '',
+    consumedProduct: '',
+    consumedVolume: '',
+    producedProduct: '',
+    producedVolume: '',
+  });
+
+  useEffect(() => {
+    localStorage.setItem('enterprises', JSON.stringify(enterprises));
+  }, [enterprises]);
 
   const handleDelete = () => {
     if (deleteId) {
@@ -66,6 +107,101 @@ export default function EnterprisePanel() {
     }
   };
 
+  const handleAdd = () => {
+    if (
+      !formData.name ||
+      !formData.location ||
+      !formData.consumedProduct ||
+      !formData.consumedVolume ||
+      !formData.producedProduct ||
+      !formData.producedVolume
+    ) {
+      toast({
+        title: 'Ошибка',
+        description: 'Заполните все поля',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const newEnterprise: Enterprise = {
+      id: Math.max(0, ...enterprises.map((e) => e.id)) + 1,
+      name: formData.name,
+      location: formData.location,
+      consumedProduct: formData.consumedProduct,
+      consumedVolume: parseInt(formData.consumedVolume),
+      producedProduct: formData.producedProduct,
+      producedVolume: parseInt(formData.producedVolume),
+      monthlyConsumption: parseInt(formData.consumedVolume),
+      monthlyProduction: parseInt(formData.producedVolume),
+    };
+
+    setEnterprises([...enterprises, newEnterprise]);
+    toast({
+      title: 'Предприятие добавлено',
+      description: 'Новое предприятие успешно добавлено в систему',
+    });
+    setIsAddDialogOpen(false);
+    setFormData({ name: '', location: '', consumedProduct: '', consumedVolume: '', producedProduct: '', producedVolume: '' });
+  };
+
+  const handleEdit = () => {
+    if (!editEnterprise) return;
+
+    if (
+      !formData.name ||
+      !formData.location ||
+      !formData.consumedProduct ||
+      !formData.consumedVolume ||
+      !formData.producedProduct ||
+      !formData.producedVolume
+    ) {
+      toast({
+        title: 'Ошибка',
+        description: 'Заполните все поля',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const updatedEnterprise: Enterprise = {
+      ...editEnterprise,
+      name: formData.name,
+      location: formData.location,
+      consumedProduct: formData.consumedProduct,
+      consumedVolume: parseInt(formData.consumedVolume),
+      producedProduct: formData.producedProduct,
+      producedVolume: parseInt(formData.producedVolume),
+      monthlyConsumption: parseInt(formData.consumedVolume),
+      monthlyProduction: parseInt(formData.producedVolume),
+    };
+
+    setEnterprises(enterprises.map((e) => (e.id === editEnterprise.id ? updatedEnterprise : e)));
+    toast({
+      title: 'Предприятие обновлено',
+      description: 'Информация о предприятии успешно обновлена',
+    });
+    setEditEnterprise(null);
+    setFormData({ name: '', location: '', consumedProduct: '', consumedVolume: '', producedProduct: '', producedVolume: '' });
+  };
+
+  const openEditDialog = (enterprise: Enterprise) => {
+    setEditEnterprise(enterprise);
+    setFormData({
+      name: enterprise.name,
+      location: enterprise.location,
+      consumedProduct: enterprise.consumedProduct,
+      consumedVolume: enterprise.consumedVolume.toString(),
+      producedProduct: enterprise.producedProduct,
+      producedVolume: enterprise.producedVolume.toString(),
+    });
+  };
+
+  const openAddDialog = () => {
+    setFormData({ name: '', location: '', consumedProduct: '', consumedVolume: '', producedProduct: '', producedVolume: '' });
+    setIsAddDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -73,7 +209,7 @@ export default function EnterprisePanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Всего предприятий</p>
-              <p className="text-3xl font-bold mt-1">8</p>
+              <p className="text-3xl font-bold mt-1">{enterprises.length}</p>
             </div>
             <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
               <Icon name="Factory" size={24} className="text-green-500" />
@@ -84,7 +220,9 @@ export default function EnterprisePanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Потребление/мес</p>
-              <p className="text-3xl font-bold mt-1">1,050</p>
+              <p className="text-3xl font-bold mt-1">
+                {enterprises.reduce((sum, e) => sum + e.monthlyConsumption, 0).toLocaleString()}
+              </p>
               <p className="text-xs text-muted-foreground">м³</p>
             </div>
             <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
@@ -96,7 +234,9 @@ export default function EnterprisePanel() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Производство/мес</p>
-              <p className="text-3xl font-bold mt-1">680</p>
+              <p className="text-3xl font-bold mt-1">
+                {enterprises.reduce((sum, e) => sum + e.monthlyProduction, 0).toLocaleString()}
+              </p>
               <p className="text-xs text-muted-foreground">м³</p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -108,7 +248,13 @@ export default function EnterprisePanel() {
 
       <Card>
         <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Список предприятий</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Список предприятий</h3>
+            <Button onClick={openAddDialog}>
+              <Icon name="Plus" size={16} className="mr-2" />
+              Добавить предприятие
+            </Button>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -145,7 +291,7 @@ export default function EnterprisePanel() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(enterprise)}>
                         <Icon name="Edit" size={16} />
                       </Button>
                       <Button variant="ghost" size="sm">
@@ -168,6 +314,90 @@ export default function EnterprisePanel() {
         </div>
       </Card>
 
+      <Dialog open={isAddDialogOpen || editEnterprise !== null} onOpenChange={() => {
+        setIsAddDialogOpen(false);
+        setEditEnterprise(null);
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editEnterprise ? 'Редактировать предприятие' : 'Добавить предприятие'}</DialogTitle>
+            <DialogDescription>Заполните информацию о предприятии</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <Label htmlFor="name">Название предприятия</Label>
+              <Input
+                id="name"
+                placeholder='Завод "ПромСнаб"'
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+            <div className="col-span-2">
+              <Label htmlFor="location">Адрес</Label>
+              <Input
+                id="location"
+                placeholder="Барнаул, Павловский тракт 45"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="consumedProduct">Потребляемая продукция</Label>
+              <Input
+                id="consumedProduct"
+                placeholder="Нефть"
+                value={formData.consumedProduct}
+                onChange={(e) => setFormData({ ...formData, consumedProduct: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="consumedVolume">Объем потребления (м³/мес)</Label>
+              <Input
+                id="consumedVolume"
+                type="number"
+                placeholder="280"
+                value={formData.consumedVolume}
+                onChange={(e) => setFormData({ ...formData, consumedVolume: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="producedProduct">Производимая продукция</Label>
+              <Input
+                id="producedProduct"
+                placeholder="Бензин АИ-95"
+                value={formData.producedProduct}
+                onChange={(e) => setFormData({ ...formData, producedProduct: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="producedVolume">Объем производства (м³/мес)</Label>
+              <Input
+                id="producedVolume"
+                type="number"
+                placeholder="180"
+                value={formData.producedVolume}
+                onChange={(e) => setFormData({ ...formData, producedVolume: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddDialogOpen(false);
+                setEditEnterprise(null);
+              }}
+            >
+              Отмена
+            </Button>
+            <Button onClick={editEnterprise ? handleEdit : handleAdd}>
+              {editEnterprise ? 'Сохранить' : 'Добавить'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -179,7 +409,10 @@ export default function EnterprisePanel() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>
