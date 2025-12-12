@@ -1,37 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import Icon from '@/components/ui/icon';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
+import WarehouseStatsCards from './warehouse/WarehouseStatsCards';
+import WarehouseTable from './warehouse/WarehouseTable';
+import WarehouseFormDialog from './warehouse/WarehouseFormDialog';
+import WarehouseDeleteDialog from './warehouse/WarehouseDeleteDialog';
 
 interface Product {
   month: string;
@@ -254,250 +226,49 @@ export default function WarehousePanel() {
     setProducts(updated);
   };
 
+  const handleCloseDialog = () => {
+    setIsAddDialogOpen(false);
+    setEditWarehouse(null);
+  };
+
+  const handleSubmitDialog = () => {
+    if (editWarehouse) {
+      handleEdit();
+    } else {
+      handleAdd();
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Всего складов</p>
-              <p className="text-3xl font-bold mt-1">{warehouses.length}</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-              <Icon name="Warehouse" size={24} className="text-blue-500" />
-            </div>
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Общий объем</p>
-              <p className="text-3xl font-bold mt-1">
-                {warehouses.reduce((sum, w) => sum + w.totalVolume, 0).toLocaleString()}
-              </p>
-              <p className="text-xs text-muted-foreground">м³</p>
-            </div>
-            <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-              <Icon name="Package" size={24} className="text-green-500" />
-            </div>
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Активных</p>
-              <p className="text-3xl font-bold mt-1">{warehouses.length}</p>
-            </div>
-            <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-              <Icon name="Activity" size={24} className="text-purple-500" />
-            </div>
-          </div>
-        </Card>
-      </div>
+      <WarehouseStatsCards warehouses={warehouses} />
 
-      <Card>
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Список складов</h3>
-            <Button onClick={openAddDialog}>
-              <Icon name="Plus" size={16} className="mr-2" />
-              Добавить склад
-            </Button>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Название</TableHead>
-                <TableHead>Адрес</TableHead>
-                <TableHead>Координаты</TableHead>
-                <TableHead>Продукция</TableHead>
-                <TableHead>Общий объем</TableHead>
-                <TableHead className="text-right">Действия</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {warehouses.map((warehouse) => (
-                <TableRow key={warehouse.id}>
-                  <TableCell className="font-medium">{warehouse.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{warehouse.location}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {warehouse.lat && warehouse.lng
-                      ? `${warehouse.lat.toFixed(4)}, ${warehouse.lng.toFixed(4)}`
-                      : 'Не указаны'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      {warehouse.products.map((p, idx) => (
-                        <div key={idx} className="text-xs">
-                          <span className="font-medium">{p.product}:</span> {p.volume} м³
-                        </div>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-semibold">{warehouse.totalVolume} м³</span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(warehouse)}>
-                        <Icon name="Edit" size={16} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeleteId(warehouse.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Icon name="Trash2" size={16} />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
+      <WarehouseTable
+        warehouses={warehouses}
+        onEdit={openEditDialog}
+        onDelete={setDeleteId}
+        onAdd={openAddDialog}
+      />
 
-      <Dialog
-        open={isAddDialogOpen || editWarehouse !== null}
-        onOpenChange={() => {
-          setIsAddDialogOpen(false);
-          setEditWarehouse(null);
-        }}
-      >
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editWarehouse ? 'Редактировать склад' : 'Добавить склад'}</DialogTitle>
-            <DialogDescription>Заполните информацию о складе</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <Label htmlFor="name">Название склада</Label>
-                <Input
-                  id="name"
-                  placeholder='Склад "Центральный"'
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="location">Адрес</Label>
-                <Input
-                  id="location"
-                  placeholder="Барнаул, ул. Промышленная 15"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="lat">Широта (lat)</Label>
-                <Input
-                  id="lat"
-                  type="number"
-                  step="0.000001"
-                  placeholder="53.356"
-                  value={formData.lat}
-                  onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="lng">Долгота (lng)</Label>
-                <Input
-                  id="lng"
-                  type="number"
-                  step="0.000001"
-                  placeholder="83.769"
-                  value={formData.lng}
-                  onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label>Продукция и остатки</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addProductField}>
-                  <Icon name="Plus" size={14} className="mr-1" />
-                  Добавить
-                </Button>
-              </div>
-              {products.map((product, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <Select
-                    value={product.product}
-                    onValueChange={(value) => updateProduct(index, 'product', value)}
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Выберите продукцию" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableProducts.map((p) => (
-                        <SelectItem key={p.id} value={p.name}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    placeholder="Объем (м³)"
-                    value={product.volume}
-                    onChange={(e) => updateProduct(index, 'volume', e.target.value)}
-                    className="w-32"
-                  />
-                  {products.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeProductField(index)}
-                      className="text-destructive"
-                    >
-                      <Icon name="X" size={16} />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAddDialogOpen(false);
-                setEditWarehouse(null);
-              }}
-            >
-              Отмена
-            </Button>
-            <Button onClick={editWarehouse ? handleEdit : handleAdd}>
-              {editWarehouse ? 'Сохранить' : 'Добавить'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <WarehouseFormDialog
+        isOpen={isAddDialogOpen || editWarehouse !== null}
+        editWarehouse={editWarehouse}
+        formData={formData}
+        products={products}
+        availableProducts={availableProducts}
+        onClose={handleCloseDialog}
+        onSubmit={handleSubmitDialog}
+        onFormDataChange={setFormData}
+        onProductUpdate={updateProduct}
+        onAddProductField={addProductField}
+        onRemoveProductField={removeProductField}
+      />
 
-      <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Удалить склад?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Это действие нельзя отменить. Склад будет удален из системы вместе со всей информацией о
-              продукции и остатках.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Удалить
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <WarehouseDeleteDialog
+        isOpen={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
