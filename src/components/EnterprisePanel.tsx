@@ -37,6 +37,12 @@ interface ProductItem {
   volume: number;
 }
 
+interface StorageItem {
+  product: string;
+  volume: number;
+  type: 'raw' | 'finished';
+}
+
 interface Enterprise {
   id: number;
   name: string;
@@ -45,6 +51,7 @@ interface Enterprise {
   lng?: number;
   consumed: ProductItem[];
   produced: ProductItem[];
+  storage: StorageItem[];
   monthlyConsumption: number;
   monthlyProduction: number;
 }
@@ -58,6 +65,10 @@ const initialEnterprises: Enterprise[] = [
     lng: 83.776,
     consumed: [{ product: 'Нефть', volume: 280 }],
     produced: [{ product: 'Бензин АИ-95', volume: 180 }],
+    storage: [
+      { product: 'Нефть', volume: 150, type: 'raw' },
+      { product: 'Бензин АИ-95', volume: 80, type: 'finished' },
+    ],
     monthlyConsumption: 280,
     monthlyProduction: 180,
   },
@@ -75,6 +86,9 @@ export default function EnterprisePanel() {
       if (!e.produced && e.producedProduct) {
         e.produced = [{ product: e.producedProduct, volume: e.producedVolume || 0 }];
       }
+      if (!e.storage) {
+        e.storage = [];
+      }
       return e;
     });
   });
@@ -89,6 +103,9 @@ export default function EnterprisePanel() {
   ]);
   const [producedProducts, setProducedProducts] = useState<{ product: string; volume: string }[]>([
     { product: '', volume: '' },
+  ]);
+  const [storageItems, setStorageItems] = useState<{ product: string; volume: string; type: 'raw' | 'finished' }[]>([
+    { product: '', volume: '', type: 'raw' },
   ]);
 
   useEffect(() => {
@@ -134,6 +151,9 @@ export default function EnterprisePanel() {
 
     const consumed = validConsumed.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
     const produced = validProduced.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
+    const storage = storageItems
+      .filter((s) => s.product && s.volume)
+      .map((s) => ({ product: s.product, volume: parseInt(s.volume), type: s.type }));
 
     const newEnterprise: Enterprise = {
       id: Math.max(0, ...enterprises.map((e) => e.id)) + 1,
@@ -143,6 +163,7 @@ export default function EnterprisePanel() {
       lng: formData.lng ? parseFloat(formData.lng) : undefined,
       consumed,
       produced,
+      storage,
       monthlyConsumption: consumed.reduce((sum, p) => sum + p.volume, 0),
       monthlyProduction: produced.reduce((sum, p) => sum + p.volume, 0),
     };
@@ -175,6 +196,9 @@ export default function EnterprisePanel() {
 
     const consumed = validConsumed.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
     const produced = validProduced.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
+    const storage = storageItems
+      .filter((s) => s.product && s.volume)
+      .map((s) => ({ product: s.product, volume: parseInt(s.volume), type: s.type }));
 
     const updatedEnterprise: Enterprise = {
       ...editEnterprise,
@@ -184,6 +208,7 @@ export default function EnterprisePanel() {
       lng: formData.lng ? parseFloat(formData.lng) : undefined,
       consumed,
       produced,
+      storage,
       monthlyConsumption: consumed.reduce((sum, p) => sum + p.volume, 0),
       monthlyProduction: produced.reduce((sum, p) => sum + p.volume, 0),
     };
@@ -198,6 +223,7 @@ export default function EnterprisePanel() {
     setFormData({ name: '', location: '', lat: '', lng: '' });
     setConsumedProducts([{ product: '', volume: '' }]);
     setProducedProducts([{ product: '', volume: '' }]);
+    setStorageItems([{ product: '', volume: '', type: 'raw' }]);
   };
 
   const openEditDialog = (enterprise: Enterprise) => {
@@ -210,6 +236,11 @@ export default function EnterprisePanel() {
     });
     setConsumedProducts(enterprise.consumed.map((p) => ({ product: p.product, volume: p.volume.toString() })));
     setProducedProducts(enterprise.produced.map((p) => ({ product: p.product, volume: p.volume.toString() })));
+    setStorageItems(
+      enterprise.storage && enterprise.storage.length > 0
+        ? enterprise.storage.map((s) => ({ product: s.product, volume: s.volume.toString(), type: s.type }))
+        : [{ product: '', volume: '', type: 'raw' as const }]
+    );
   };
 
   const openAddDialog = () => {
@@ -278,6 +309,7 @@ export default function EnterprisePanel() {
                 <TableHead>Координаты</TableHead>
                 <TableHead>Потребление</TableHead>
                 <TableHead>Производство</TableHead>
+                <TableHead>Склады</TableHead>
                 <TableHead className="text-right">Действия</TableHead>
               </TableRow>
             </TableHeader>
@@ -308,6 +340,20 @@ export default function EnterprisePanel() {
                         </div>
                       ))}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {enterprise.storage && enterprise.storage.length > 0 ? (
+                      <div className="text-xs space-y-1">
+                        {enterprise.storage.map((s, idx) => (
+                          <div key={idx}>
+                            <span className="font-medium">{s.product}:</span> {s.volume} м³ 
+                            <span className="text-muted-foreground ml-1">({s.type === 'raw' ? 'сырье' : 'готовая'})</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">Нет данных</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
@@ -379,6 +425,32 @@ export default function EnterprisePanel() {
                   </Select>
                   <Input type="number" placeholder="Объем (м³/мес)" value={product.volume} onChange={(e) => { const updated = [...producedProducts]; updated[index].volume = e.target.value; setProducedProducts(updated); }} className="w-40" />
                   {producedProducts.length > 1 && (<Button type="button" variant="ghost" size="sm" onClick={() => setProducedProducts(producedProducts.filter((_, i) => i !== index))} className="text-destructive"><Icon name="X" size={16} /></Button>)}
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Склады при предприятии</Label>
+                <Button type="button" variant="outline" size="sm" onClick={() => setStorageItems([...storageItems, { product: '', volume: '', type: 'raw' }])}>
+                  <Icon name="Plus" size={14} className="mr-1" />Добавить
+                </Button>
+              </div>
+              {storageItems.map((item, index) => (
+                <div key={index} className="flex gap-2 mb-2">
+                  <Select value={item.product} onValueChange={(value) => { const updated = [...storageItems]; updated[index].product = value; setStorageItems(updated); }}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Выберите продукцию" /></SelectTrigger>
+                    <SelectContent>{availableProducts.map((p) => (<SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>))}</SelectContent>
+                  </Select>
+                  <Input type="number" placeholder="Объем (м³)" value={item.volume} onChange={(e) => { const updated = [...storageItems]; updated[index].volume = e.target.value; setStorageItems(updated); }} className="w-32" />
+                  <Select value={item.type} onValueChange={(value: 'raw' | 'finished') => { const updated = [...storageItems]; updated[index].type = value; setStorageItems(updated); }}>
+                    <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="raw">Сырье</SelectItem>
+                      <SelectItem value="finished">Готовая</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {storageItems.length > 1 && (<Button type="button" variant="ghost" size="sm" onClick={() => setStorageItems(storageItems.filter((_, i) => i !== index))} className="text-destructive"><Icon name="X" size={16} /></Button>)}
                 </div>
               ))}
             </div>

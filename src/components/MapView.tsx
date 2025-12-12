@@ -28,6 +28,7 @@ export default function MapView() {
         lng: e.lng,
         consumed: e.consumed || [{ product: e.consumedProduct, volume: e.consumedVolume }],
         produced: e.produced || [{ product: e.producedProduct, volume: e.producedVolume }],
+        storage: e.storage || [],
       })),
     ];
 
@@ -70,14 +71,40 @@ export default function MapView() {
                 location.produced.forEach((p: any) => {
                   balloonContent += `<span style="font-size: 12px;">• ${p.product}: ${p.volume} м³/мес</span><br/>`;
                 });
+                
+                if (location.storage && location.storage.length > 0) {
+                  balloonContent += '<br/><strong>Склады при предприятии:</strong><br/>';
+                  const rawStorage = location.storage.filter((s: any) => s.type === 'raw');
+                  const finishedStorage = location.storage.filter((s: any) => s.type === 'finished');
+                  
+                  if (rawStorage.length > 0) {
+                    balloonContent += '<span style="font-size: 11px; color: #888;">Сырье:</span><br/>';
+                    rawStorage.forEach((s: any) => {
+                      balloonContent += `<span style="font-size: 12px;">• ${s.product}: ${s.volume} м³</span><br/>`;
+                    });
+                  }
+                  
+                  if (finishedStorage.length > 0) {
+                    balloonContent += '<span style="font-size: 11px; color: #888;">Готовая продукция:</span><br/>';
+                    finishedStorage.forEach((s: any) => {
+                      balloonContent += `<span style="font-size: 12px;">• ${s.product}: ${s.volume} м³</span><br/>`;
+                    });
+                  }
+                }
               }
 
               balloonContent += '</div>';
 
               const placemark = new (window as any).ymaps.Placemark(
                 coords,
-                { balloonContent: balloonContent },
-                { preset: location.type === 'warehouse' ? 'islands#blueIcon' : 'islands#greenIcon' }
+                { 
+                  balloonContent: balloonContent,
+                  iconCaption: location.name
+                },
+                { 
+                  preset: location.type === 'warehouse' ? 'islands#blueIcon' : 'islands#greenIcon',
+                  iconCaptionMaxWidth: '200'
+                }
               );
               map.geoObjects.add(placemark);
             };
