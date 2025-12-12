@@ -1,11 +1,23 @@
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from '@/components/ui/use-toast';
 
 export default function VehiclePanel() {
-  const vehicles = [
+  const [vehicles, setVehicles] = useState([
     {
       id: 1,
       brand: 'КАМАЗ 65115',
@@ -46,7 +58,20 @@ export default function VehiclePanel() {
       schedule: '5/2 (9:00-18:00)',
       status: 'maintenance',
     },
-  ];
+  ]);
+
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  const handleDelete = () => {
+    if (deleteId) {
+      setVehicles(vehicles.filter((v) => v.id !== deleteId));
+      toast({
+        title: 'Автомобиль удален',
+        description: 'Транспортное средство успешно удалено из автопарка',
+      });
+      setDeleteId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -157,6 +182,14 @@ export default function VehiclePanel() {
                       <Button variant="ghost" size="sm">
                         <Icon name="MapPin" size={16} />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteId(vehicle.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Icon name="Trash2" size={16} />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -165,6 +198,24 @@ export default function VehiclePanel() {
           </Table>
         </div>
       </Card>
+
+      <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить автомобиль?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Транспортное средство будет удалено из автопарка вместе со всей
+              информацией о маршрутах и графике работы.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

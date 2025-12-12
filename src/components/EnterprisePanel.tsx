@@ -1,11 +1,23 @@
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from '@/components/ui/use-toast';
 
 export default function EnterprisePanel() {
-  const enterprises = [
+  const [enterprises, setEnterprises] = useState([
     {
       id: 1,
       name: 'Завод "ПромСнаб"',
@@ -39,7 +51,20 @@ export default function EnterprisePanel() {
       monthlyConsumption: 420,
       monthlyProduction: 280,
     },
-  ];
+  ]);
+
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  const handleDelete = () => {
+    if (deleteId) {
+      setEnterprises(enterprises.filter((e) => e.id !== deleteId));
+      toast({
+        title: 'Предприятие удалено',
+        description: 'Предприятие успешно удалено из системы',
+      });
+      setDeleteId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -126,6 +151,14 @@ export default function EnterprisePanel() {
                       <Button variant="ghost" size="sm">
                         <Icon name="MapPin" size={16} />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteId(enterprise.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Icon name="Trash2" size={16} />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -134,6 +167,24 @@ export default function EnterprisePanel() {
           </Table>
         </div>
       </Card>
+
+      <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить предприятие?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Предприятие будет удалено из системы вместе со всей информацией о
+              потреблении и производстве.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

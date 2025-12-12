@@ -1,11 +1,23 @@
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from '@/components/ui/use-toast';
 
 export default function WarehousePanel() {
-  const warehouses = [
+  const [warehouses, setWarehouses] = useState([
     {
       id: 1,
       name: 'Склад "Центральный"',
@@ -36,7 +48,20 @@ export default function WarehousePanel() {
       totalVolume: 560,
       status: 'active',
     },
-  ];
+  ]);
+
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  const handleDelete = () => {
+    if (deleteId) {
+      setWarehouses(warehouses.filter((w) => w.id !== deleteId));
+      toast({
+        title: 'Склад удален',
+        description: 'Склад успешно удален из системы',
+      });
+      setDeleteId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -121,6 +146,14 @@ export default function WarehousePanel() {
                       <Button variant="ghost" size="sm">
                         <Icon name="MapPin" size={16} />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteId(warehouse.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Icon name="Trash2" size={16} />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -129,6 +162,24 @@ export default function WarehousePanel() {
           </Table>
         </div>
       </Card>
+
+      <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить склад?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Склад будет удален из системы вместе со всей информацией о
+              продукции и остатках.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

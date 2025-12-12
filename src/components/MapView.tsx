@@ -7,10 +7,10 @@ export default function MapView() {
   const mapRef = useRef<HTMLDivElement>(null);
 
   const locations = [
-    { id: 1, name: 'Склад "Центральный"', type: 'warehouse', lat: 55.751244, lng: 37.618423, stock: 450 },
-    { id: 2, name: 'Склад "Северный"', type: 'warehouse', lat: 55.851244, lng: 37.518423, stock: 320 },
-    { id: 3, name: 'Завод "ПромСнаб"', type: 'enterprise', lat: 55.651244, lng: 37.718423, production: 280 },
-    { id: 4, name: 'Завод "Индустрия"', type: 'enterprise', lat: 55.791244, lng: 37.818423, production: 350 },
+    { id: 1, name: 'Склад "Центральный"', type: 'warehouse', lat: 53.35, lng: 83.77, stock: 450 },
+    { id: 2, name: 'Склад "Северный"', type: 'warehouse', lat: 53.45, lng: 83.67, stock: 320 },
+    { id: 3, name: 'Завод "ПромСнаб"', type: 'enterprise', lat: 53.25, lng: 83.87, production: 280 },
+    { id: 4, name: 'Завод "Индустрия"', type: 'enterprise', lat: 53.40, lng: 83.97, production: 350 },
   ];
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export default function MapView() {
       if (typeof window !== 'undefined' && (window as any).ymaps) {
         (window as any).ymaps.ready(() => {
           const map = new (window as any).ymaps.Map(mapRef.current, {
-            center: [55.751244, 37.618423],
+            center: [53.35, 83.77],
             zoom: 10,
             controls: ['zoomControl', 'fullscreenControl'],
           });
