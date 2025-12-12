@@ -26,14 +26,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 
+interface ProductItem {
+  product: string;
+  volume: number;
+}
+
 interface Enterprise {
   id: number;
   name: string;
   location: string;
-  consumedProduct: string;
-  consumedVolume: number;
-  producedProduct: string;
-  producedVolume: number;
+  consumed: ProductItem[];
+  produced: ProductItem[];
+  consumedProduct?: string;
+  consumedVolume?: number;
+  producedProduct?: string;
+  producedVolume?: number;
   monthlyConsumption: number;
   monthlyProduction: number;
 }
@@ -43,10 +50,8 @@ const initialEnterprises: Enterprise[] = [
     id: 1,
     name: 'Завод "ПромСнаб"',
     location: 'Барнаул, Павловский тракт 45',
-    consumedProduct: 'Нефть',
-    consumedVolume: 280,
-    producedProduct: 'Бензин АИ-95',
-    producedVolume: 180,
+    consumed: [{ product: 'Нефть', volume: 280 }],
+    produced: [{ product: 'Бензин АИ-95', volume: 180 }],
     monthlyConsumption: 280,
     monthlyProduction: 180,
   },
@@ -54,10 +59,8 @@ const initialEnterprises: Enterprise[] = [
     id: 2,
     name: 'Завод "Индустрия"',
     location: 'Бийск, Промышленная зона 12',
-    consumedProduct: 'Нефть',
-    consumedVolume: 350,
-    producedProduct: 'Дизель',
-    producedVolume: 220,
+    consumed: [{ product: 'Нефть', volume: 350 }],
+    produced: [{ product: 'Дизель', volume: 220 }],
     monthlyConsumption: 350,
     monthlyProduction: 220,
   },
@@ -65,10 +68,11 @@ const initialEnterprises: Enterprise[] = [
     id: 3,
     name: 'Завод "НефтеХим"',
     location: 'Рубцовск, Заводской проезд 8',
-    consumedProduct: 'Нефть',
-    consumedVolume: 420,
-    producedProduct: 'Бензин АИ-92',
-    producedVolume: 280,
+    consumed: [{ product: 'Нефть', volume: 420 }],
+    produced: [
+      { product: 'Бензин АИ-92', volume: 180 },
+      { product: 'Дизель', volume: 100 },
+    ],
     monthlyConsumption: 420,
     monthlyProduction: 280,
   },
@@ -77,7 +81,18 @@ const initialEnterprises: Enterprise[] = [
 export default function EnterprisePanel() {
   const [enterprises, setEnterprises] = useState<Enterprise[]>(() => {
     const saved = localStorage.getItem('enterprises');
-    return saved ? JSON.parse(saved) : initialEnterprises;
+    if (!saved) return initialEnterprises;
+    
+    const parsed = JSON.parse(saved);
+    return parsed.map((e: Enterprise) => {
+      if (!e.consumed && e.consumedProduct) {
+        e.consumed = [{ product: e.consumedProduct, volume: e.consumedVolume || 0 }];
+      }
+      if (!e.produced && e.producedProduct) {
+        e.produced = [{ product: e.producedProduct, volume: e.producedVolume || 0 }];
+      }
+      return e;
+    });
   });
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -86,14 +101,17 @@ export default function EnterprisePanel() {
   const [formData, setFormData] = useState({
     name: '',
     location: '',
-    consumedProduct: '',
-    consumedVolume: '',
-    producedProduct: '',
-    producedVolume: '',
   });
+  const [consumedProducts, setConsumedProducts] = useState<{ product: string; volume: string }[]>([
+    { product: '', volume: '' },
+  ]);
+  const [producedProducts, setProducedProducts] = useState<{ product: string; volume: string }[]>([
+    { product: '', volume: '' },
+  ]);
 
   useEffect(() => {
     localStorage.setItem('enterprises', JSON.stringify(enterprises));
+    window.dispatchEvent(new Event('storage'));
   }, [enterprises]);
 
   const handleDelete = () => {
@@ -108,32 +126,45 @@ export default function EnterprisePanel() {
   };
 
   const handleAdd = () => {
-    if (
-      !formData.name ||
-      !formData.location ||
-      !formData.consumedProduct ||
-      !formData.consumedVolume ||
-      !formData.producedProduct ||
-      !formData.producedVolume
-    ) {
+    if (!formData.name || !formData.location) {
       toast({
         title: 'Ошибка',
-        description: 'Заполните все поля',
+        description: 'Заполните название и адрес',
         variant: 'destructive',
       });
       return;
     }
 
+    const validConsumed = consumedProducts.filter((p) => p.product && p.volume);
+    const validProduced = producedProducts.filter((p) => p.product && p.volume);
+
+    if (validConsumed.length === 0 || validProduced.length === 0) {
+      toast({
+        title: 'Ошибка',
+        description: 'Добавьте хотя бы по одной потребляемой и производимой продукции',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const consumed = validConsumed.map((p) => ({
+      product: p.product,
+      volume: parseInt(p.volume),
+    }));
+
+    const produced = validProduced.map((p) => ({
+      product: p.product,
+      volume: parseInt(p.volume),
+    }));
+
     const newEnterprise: Enterprise = {
       id: Math.max(0, ...enterprises.map((e) => e.id)) + 1,
       name: formData.name,
       location: formData.location,
-      consumedProduct: formData.consumedProduct,
-      consumedVolume: parseInt(formData.consumedVolume),
-      producedProduct: formData.producedProduct,
-      producedVolume: parseInt(formData.producedVolume),
-      monthlyConsumption: parseInt(formData.consumedVolume),
-      monthlyProduction: parseInt(formData.producedVolume),
+      consumed,
+      produced,
+      monthlyConsumption: consumed.reduce((sum, p) => sum + p.volume, 0),
+      monthlyProduction: produced.reduce((sum, p) => sum + p.volume, 0),
     };
 
     setEnterprises([...enterprises, newEnterprise]);
@@ -142,38 +173,51 @@ export default function EnterprisePanel() {
       description: 'Новое предприятие успешно добавлено в систему',
     });
     setIsAddDialogOpen(false);
-    setFormData({ name: '', location: '', consumedProduct: '', consumedVolume: '', producedProduct: '', producedVolume: '' });
+    resetForm();
   };
 
   const handleEdit = () => {
     if (!editEnterprise) return;
 
-    if (
-      !formData.name ||
-      !formData.location ||
-      !formData.consumedProduct ||
-      !formData.consumedVolume ||
-      !formData.producedProduct ||
-      !formData.producedVolume
-    ) {
+    if (!formData.name || !formData.location) {
       toast({
         title: 'Ошибка',
-        description: 'Заполните все поля',
+        description: 'Заполните название и адрес',
         variant: 'destructive',
       });
       return;
     }
 
+    const validConsumed = consumedProducts.filter((p) => p.product && p.volume);
+    const validProduced = producedProducts.filter((p) => p.product && p.volume);
+
+    if (validConsumed.length === 0 || validProduced.length === 0) {
+      toast({
+        title: 'Ошибка',
+        description: 'Добавьте хотя бы по одной потребляемой и производимой продукции',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const consumed = validConsumed.map((p) => ({
+      product: p.product,
+      volume: parseInt(p.volume),
+    }));
+
+    const produced = validProduced.map((p) => ({
+      product: p.product,
+      volume: parseInt(p.volume),
+    }));
+
     const updatedEnterprise: Enterprise = {
       ...editEnterprise,
       name: formData.name,
       location: formData.location,
-      consumedProduct: formData.consumedProduct,
-      consumedVolume: parseInt(formData.consumedVolume),
-      producedProduct: formData.producedProduct,
-      producedVolume: parseInt(formData.producedVolume),
-      monthlyConsumption: parseInt(formData.consumedVolume),
-      monthlyProduction: parseInt(formData.producedVolume),
+      consumed,
+      produced,
+      monthlyConsumption: consumed.reduce((sum, p) => sum + p.volume, 0),
+      monthlyProduction: produced.reduce((sum, p) => sum + p.volume, 0),
     };
 
     setEnterprises(enterprises.map((e) => (e.id === editEnterprise.id ? updatedEnterprise : e)));
@@ -182,7 +226,13 @@ export default function EnterprisePanel() {
       description: 'Информация о предприятии успешно обновлена',
     });
     setEditEnterprise(null);
-    setFormData({ name: '', location: '', consumedProduct: '', consumedVolume: '', producedProduct: '', producedVolume: '' });
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setFormData({ name: '', location: '' });
+    setConsumedProducts([{ product: '', volume: '' }]);
+    setProducedProducts([{ product: '', volume: '' }]);
   };
 
   const openEditDialog = (enterprise: Enterprise) => {
@@ -190,15 +240,23 @@ export default function EnterprisePanel() {
     setFormData({
       name: enterprise.name,
       location: enterprise.location,
-      consumedProduct: enterprise.consumedProduct,
-      consumedVolume: enterprise.consumedVolume.toString(),
-      producedProduct: enterprise.producedProduct,
-      producedVolume: enterprise.producedVolume.toString(),
     });
+    setConsumedProducts(
+      enterprise.consumed.map((p) => ({
+        product: p.product,
+        volume: p.volume.toString(),
+      }))
+    );
+    setProducedProducts(
+      enterprise.produced.map((p) => ({
+        product: p.product,
+        volume: p.volume.toString(),
+      }))
+    );
   };
 
   const openAddDialog = () => {
-    setFormData({ name: '', location: '', consumedProduct: '', consumedVolume: '', producedProduct: '', producedVolume: '' });
+    resetForm();
     setIsAddDialogOpen(true);
   };
 
@@ -272,15 +330,21 @@ export default function EnterprisePanel() {
                   <TableCell className="font-medium">{enterprise.name}</TableCell>
                   <TableCell className="text-muted-foreground">{enterprise.location}</TableCell>
                   <TableCell>
-                    <div className="text-xs">
-                      <div className="font-medium">{enterprise.consumedProduct}</div>
-                      <div className="text-muted-foreground">{enterprise.consumedVolume} м³</div>
+                    <div className="text-xs space-y-1">
+                      {enterprise.consumed.map((c, idx) => (
+                        <div key={idx}>
+                          <span className="font-medium">{c.product}:</span> {c.volume} м³
+                        </div>
+                      ))}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-xs">
-                      <div className="font-medium">{enterprise.producedProduct}</div>
-                      <div className="text-muted-foreground">{enterprise.producedVolume} м³</div>
+                    <div className="text-xs space-y-1">
+                      {enterprise.produced.map((p, idx) => (
+                        <div key={idx}>
+                          <span className="font-medium">{p.product}:</span> {p.volume} м³
+                        </div>
+                      ))}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -314,17 +378,20 @@ export default function EnterprisePanel() {
         </div>
       </Card>
 
-      <Dialog open={isAddDialogOpen || editEnterprise !== null} onOpenChange={() => {
-        setIsAddDialogOpen(false);
-        setEditEnterprise(null);
-      }}>
-        <DialogContent className="max-w-2xl">
+      <Dialog
+        open={isAddDialogOpen || editEnterprise !== null}
+        onOpenChange={() => {
+          setIsAddDialogOpen(false);
+          setEditEnterprise(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editEnterprise ? 'Редактировать предприятие' : 'Добавить предприятие'}</DialogTitle>
             <DialogDescription>Заполните информацию о предприятии</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
+          <div className="space-y-4">
+            <div>
               <Label htmlFor="name">Название предприятия</Label>
               <Input
                 id="name"
@@ -333,7 +400,7 @@ export default function EnterprisePanel() {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
-            <div className="col-span-2">
+            <div>
               <Label htmlFor="location">Адрес</Label>
               <Input
                 id="location"
@@ -342,43 +409,107 @@ export default function EnterprisePanel() {
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               />
             </div>
+            
             <div>
-              <Label htmlFor="consumedProduct">Потребляемая продукция</Label>
-              <Input
-                id="consumedProduct"
-                placeholder="Нефть"
-                value={formData.consumedProduct}
-                onChange={(e) => setFormData({ ...formData, consumedProduct: e.target.value })}
-              />
+              <div className="flex items-center justify-between mb-2">
+                <Label>Потребляемая продукция</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConsumedProducts([...consumedProducts, { product: '', volume: '' }])}
+                >
+                  <Icon name="Plus" size={14} className="mr-1" />
+                  Добавить
+                </Button>
+              </div>
+              {consumedProducts.map((product, index) => (
+                <div key={index} className="flex gap-2 mb-2">
+                  <Input
+                    placeholder="Название продукции"
+                    value={product.product}
+                    onChange={(e) => {
+                      const updated = [...consumedProducts];
+                      updated[index].product = e.target.value;
+                      setConsumedProducts(updated);
+                    }}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Объем (м³/мес)"
+                    value={product.volume}
+                    onChange={(e) => {
+                      const updated = [...consumedProducts];
+                      updated[index].volume = e.target.value;
+                      setConsumedProducts(updated);
+                    }}
+                    className="w-40"
+                  />
+                  {consumedProducts.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setConsumedProducts(consumedProducts.filter((_, i) => i !== index))}
+                      className="text-destructive"
+                    >
+                      <Icon name="X" size={16} />
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
+
             <div>
-              <Label htmlFor="consumedVolume">Объем потребления (м³/мес)</Label>
-              <Input
-                id="consumedVolume"
-                type="number"
-                placeholder="280"
-                value={formData.consumedVolume}
-                onChange={(e) => setFormData({ ...formData, consumedVolume: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="producedProduct">Производимая продукция</Label>
-              <Input
-                id="producedProduct"
-                placeholder="Бензин АИ-95"
-                value={formData.producedProduct}
-                onChange={(e) => setFormData({ ...formData, producedProduct: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="producedVolume">Объем производства (м³/мес)</Label>
-              <Input
-                id="producedVolume"
-                type="number"
-                placeholder="180"
-                value={formData.producedVolume}
-                onChange={(e) => setFormData({ ...formData, producedVolume: e.target.value })}
-              />
+              <div className="flex items-center justify-between mb-2">
+                <Label>Производимая продукция</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setProducedProducts([...producedProducts, { product: '', volume: '' }])}
+                >
+                  <Icon name="Plus" size={14} className="mr-1" />
+                  Добавить
+                </Button>
+              </div>
+              {producedProducts.map((product, index) => (
+                <div key={index} className="flex gap-2 mb-2">
+                  <Input
+                    placeholder="Название продукции"
+                    value={product.product}
+                    onChange={(e) => {
+                      const updated = [...producedProducts];
+                      updated[index].product = e.target.value;
+                      setProducedProducts(updated);
+                    }}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Объем (м³/мес)"
+                    value={product.volume}
+                    onChange={(e) => {
+                      const updated = [...producedProducts];
+                      updated[index].volume = e.target.value;
+                      setProducedProducts(updated);
+                    }}
+                    className="w-40"
+                  />
+                  {producedProducts.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setProducedProducts(producedProducts.filter((_, i) => i !== index))}
+                      className="text-destructive"
+                    >
+                      <Icon name="X" size={16} />
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
           <DialogFooter>

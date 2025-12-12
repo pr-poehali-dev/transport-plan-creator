@@ -1,20 +1,40 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function MapView() {
   const mapRef = useRef<HTMLDivElement>(null);
-
-  const locations = [
-    { id: 1, name: 'Склад "Центральный"', type: 'warehouse', lat: 53.35, lng: 83.77, stock: 450 },
-    { id: 2, name: 'Склад "Северный"', type: 'warehouse', lat: 53.45, lng: 83.67, stock: 320 },
-    { id: 3, name: 'Завод "ПромСнаб"', type: 'enterprise', lat: 53.25, lng: 83.87, production: 280 },
-    { id: 4, name: 'Завод "Индустрия"', type: 'enterprise', lat: 53.40, lng: 83.97, production: 350 },
-  ];
+  const [locations, setLocations] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!mapRef.current) return;
+    const warehouses = JSON.parse(localStorage.getItem('warehouses') || '[]');
+    const enterprises = JSON.parse(localStorage.getItem('enterprises') || '[]');
+
+    const allLocations = [
+      ...warehouses.map((w: any) => ({
+        id: `warehouse-${w.id}`,
+        name: w.name,
+        type: 'warehouse',
+        location: w.location,
+        products: w.products,
+        totalVolume: w.totalVolume,
+      })),
+      ...enterprises.map((e: any) => ({
+        id: `enterprise-${e.id}`,
+        name: e.name,
+        type: 'enterprise',
+        location: e.location,
+        consumed: e.consumed || [{ product: e.consumedProduct, volume: e.consumedVolume }],
+        produced: e.produced || [{ product: e.producedProduct, volume: e.producedVolume }],
+      })),
+    ];
+
+    setLocations(allLocations);
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || locations.length === 0) return;
 
     const script = document.createElement('script');
     script.src = 'https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU';
@@ -29,35 +49,64 @@ export default function MapView() {
           });
 
           locations.forEach((location) => {
-            const placemark = new (window as any).ymaps.Placemark(
-              [location.lat, location.lng],
-              {
-                balloonContent: `
-                  <div style="padding: 8px;">
-                    <strong>${location.name}</strong><br/>
-                    <span style="color: #666;">
-                      ${location.type === 'warehouse' ? `Остаток: ${location.stock} м³` : `Производство: ${location.production} м³/мес`}
-                    </span>
-                  </div>
-                `,
-              },
-              {
-                preset: location.type === 'warehouse' ? 'islands#blueIcon' : 'islands#greenIcon',
+            (window as any).ymaps.geocode(location.location).then((res: any) => {
+              const firstGeoObject = res.geoObjects.get(0);
+              if (firstGeoObject) {
+                const coords = firstGeoObject.geometry.getCoordinates();
+
+                let balloonContent = `<div style="padding: 8px; max-width: 250px;">
+                  <strong>${location.name}</strong><br/>
+                  <span style="color: #666; font-size: 12px;">${location.location}</span><br/><br/>`;
+
+                if (location.type === 'warehouse') {
+                  balloonContent += '<strong>Остатки:</strong><br/>';
+                  location.products.forEach((p: any) => {
+                    balloonContent += `<span style="font-size: 12px;">• ${p.product}: ${p.volume} м³</span><br/>`;
+                  });
+                  balloonContent += `<br/><strong>Общий объем:</strong> ${location.totalVolume} м³`;
+                } else {
+                  balloonContent += '<strong>Потребление:</strong><br/>';
+                  location.consumed.forEach((c: any) => {
+                    balloonContent += `<span style="font-size: 12px;">• ${c.product}: ${c.volume} м³/мес</span><br/>`;
+                  });
+                  balloonContent += '<br/><strong>Производство:</strong><br/>';
+                  location.produced.forEach((p: any) => {
+                    balloonContent += `<span style="font-size: 12px;">• ${p.product}: ${p.volume} м³/мес</span><br/>`;
+                  });
+                }
+
+                balloonContent += '</div>';
+
+                const placemark = new (window as any).ymaps.Placemark(
+                  coords,
+                  {
+                    balloonContent: balloonContent,
+                  },
+                  {
+                    preset: location.type === 'warehouse' ? 'islands#blueIcon' : 'islands#greenIcon',
+                  }
+                );
+                map.geoObjects.add(placemark);
               }
-            );
-            map.geoObjects.add(placemark);
+            });
           });
         });
       }
     };
-    document.head.appendChild(script);
+    
+    const existingScript = document.querySelector('script[src*="api-maps.yandex.ru"]');
+    if (!existingScript) {
+      document.head.appendChild(script);
+    } else if ((window as any).ymaps) {
+      script.onload(new Event('load'));
+    }
 
     return () => {
       if (document.head.contains(script)) {
         document.head.removeChild(script);
       }
     };
-  }, []);
+  }, [locations]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -72,32 +121,34 @@ export default function MapView() {
             Объекты на карте
           </h3>
           <div className="space-y-3">
-            {locations.map((location) => (
-              <div key={location.id} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    location.type === 'warehouse' ? 'bg-blue-100' : 'bg-green-100'
-                  }`}
-                >
-                  <Icon
-                    name={location.type === 'warehouse' ? 'Warehouse' : 'Factory'}
-                    size={18}
-                    className={location.type === 'warehouse' ? 'text-blue-600' : 'text-green-600'}
-                  />
+            {locations.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Нет объектов для отображения
+              </p>
+            ) : (
+              locations.map((location) => (
+                <div key={location.id} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      location.type === 'warehouse' ? 'bg-blue-100' : 'bg-green-100'
+                    }`}
+                  >
+                    <Icon
+                      name={location.type === 'warehouse' ? 'Warehouse' : 'Factory'}
+                      size={18}
+                      className={location.type === 'warehouse' ? 'text-blue-600' : 'text-green-600'}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{location.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{location.location}</p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {location.type === 'warehouse' ? 'Склад' : 'Завод'}
+                  </Badge>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{location.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {location.type === 'warehouse'
-                      ? `Остаток: ${location.stock} м³`
-                      : `${location.production} м³/мес`}
-                  </p>
-                </div>
-                <Badge variant="outline" className="text-xs">
-                  {location.type === 'warehouse' ? 'Склад' : 'Завод'}
-                </Badge>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
 

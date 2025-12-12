@@ -26,11 +26,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 
+interface Product {
+  month: string;
+  product: string;
+  volume: number;
+}
+
 interface Warehouse {
   id: number;
   name: string;
   location: string;
-  products: { month: string; product: string; volume: number }[];
+  products: Product[];
   totalVolume: number;
   status: string;
 }
@@ -80,12 +86,14 @@ export default function WarehousePanel() {
   const [formData, setFormData] = useState({
     name: '',
     location: '',
-    product: '',
-    volume: '',
   });
+  const [products, setProducts] = useState<{ product: string; volume: string }[]>([
+    { product: '', volume: '' },
+  ]);
 
   useEffect(() => {
     localStorage.setItem('warehouses', JSON.stringify(warehouses));
+    window.dispatchEvent(new Event('storage'));
   }, [warehouses]);
 
   const handleDelete = () => {
@@ -100,10 +108,20 @@ export default function WarehousePanel() {
   };
 
   const handleAdd = () => {
-    if (!formData.name || !formData.location || !formData.product || !formData.volume) {
+    if (!formData.name || !formData.location) {
       toast({
         title: 'Ошибка',
-        description: 'Заполните все поля',
+        description: 'Заполните название и адрес',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const validProducts = products.filter((p) => p.product && p.volume);
+    if (validProducts.length === 0) {
+      toast({
+        title: 'Ошибка',
+        description: 'Добавьте хотя бы одну продукцию',
         variant: 'destructive',
       });
       return;
@@ -113,14 +131,12 @@ export default function WarehousePanel() {
       id: Math.max(0, ...warehouses.map((w) => w.id)) + 1,
       name: formData.name,
       location: formData.location,
-      products: [
-        {
-          month: 'Декабрь 2025',
-          product: formData.product,
-          volume: parseInt(formData.volume),
-        },
-      ],
-      totalVolume: parseInt(formData.volume),
+      products: validProducts.map((p) => ({
+        month: 'Декабрь 2025',
+        product: p.product,
+        volume: parseInt(p.volume),
+      })),
+      totalVolume: validProducts.reduce((sum, p) => sum + parseInt(p.volume), 0),
       status: 'active',
     };
 
@@ -130,16 +146,27 @@ export default function WarehousePanel() {
       description: 'Новый склад успешно добавлен в систему',
     });
     setIsAddDialogOpen(false);
-    setFormData({ name: '', location: '', product: '', volume: '' });
+    setFormData({ name: '', location: '' });
+    setProducts([{ product: '', volume: '' }]);
   };
 
   const handleEdit = () => {
     if (!editWarehouse) return;
 
-    if (!formData.name || !formData.location || !formData.product || !formData.volume) {
+    if (!formData.name || !formData.location) {
       toast({
         title: 'Ошибка',
-        description: 'Заполните все поля',
+        description: 'Заполните название и адрес',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const validProducts = products.filter((p) => p.product && p.volume);
+    if (validProducts.length === 0) {
+      toast({
+        title: 'Ошибка',
+        description: 'Добавьте хотя бы одну продукцию',
         variant: 'destructive',
       });
       return;
@@ -149,14 +176,12 @@ export default function WarehousePanel() {
       ...editWarehouse,
       name: formData.name,
       location: formData.location,
-      products: [
-        {
-          month: 'Декабрь 2025',
-          product: formData.product,
-          volume: parseInt(formData.volume),
-        },
-      ],
-      totalVolume: parseInt(formData.volume),
+      products: validProducts.map((p) => ({
+        month: 'Декабрь 2025',
+        product: p.product,
+        volume: parseInt(p.volume),
+      })),
+      totalVolume: validProducts.reduce((sum, p) => sum + parseInt(p.volume), 0),
     };
 
     setWarehouses(warehouses.map((w) => (w.id === editWarehouse.id ? updatedWarehouse : w)));
@@ -165,7 +190,8 @@ export default function WarehousePanel() {
       description: 'Информация о складе успешно обновлена',
     });
     setEditWarehouse(null);
-    setFormData({ name: '', location: '', product: '', volume: '' });
+    setFormData({ name: '', location: '' });
+    setProducts([{ product: '', volume: '' }]);
   };
 
   const openEditDialog = (warehouse: Warehouse) => {
@@ -173,14 +199,33 @@ export default function WarehousePanel() {
     setFormData({
       name: warehouse.name,
       location: warehouse.location,
-      product: warehouse.products[0]?.product || '',
-      volume: warehouse.products[0]?.volume.toString() || '',
     });
+    setProducts(
+      warehouse.products.map((p) => ({
+        product: p.product,
+        volume: p.volume.toString(),
+      }))
+    );
   };
 
   const openAddDialog = () => {
-    setFormData({ name: '', location: '', product: '', volume: '' });
+    setFormData({ name: '', location: '' });
+    setProducts([{ product: '', volume: '' }]);
     setIsAddDialogOpen(true);
+  };
+
+  const addProductField = () => {
+    setProducts([...products, { product: '', volume: '' }]);
+  };
+
+  const removeProductField = (index: number) => {
+    setProducts(products.filter((_, i) => i !== index));
+  };
+
+  const updateProduct = (index: number, field: 'product' | 'volume', value: string) => {
+    const updated = [...products];
+    updated[index][field] = value;
+    setProducts(updated);
   };
 
   return (
@@ -291,16 +336,17 @@ export default function WarehousePanel() {
         </div>
       </Card>
 
-      <Dialog open={isAddDialogOpen || editWarehouse !== null} onOpenChange={() => {
-        setIsAddDialogOpen(false);
-        setEditWarehouse(null);
-      }}>
-        <DialogContent>
+      <Dialog
+        open={isAddDialogOpen || editWarehouse !== null}
+        onOpenChange={() => {
+          setIsAddDialogOpen(false);
+          setEditWarehouse(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editWarehouse ? 'Редактировать склад' : 'Добавить склад'}</DialogTitle>
-            <DialogDescription>
-              Заполните информацию о складе
-            </DialogDescription>
+            <DialogDescription>Заполните информацию о складе</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -322,30 +368,51 @@ export default function WarehousePanel() {
               />
             </div>
             <div>
-              <Label htmlFor="product">Продукция</Label>
-              <Input
-                id="product"
-                placeholder="Бензин АИ-95"
-                value={formData.product}
-                onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="volume">Объем (м³)</Label>
-              <Input
-                id="volume"
-                type="number"
-                placeholder="450"
-                value={formData.volume}
-                onChange={(e) => setFormData({ ...formData, volume: e.target.value })}
-              />
+              <div className="flex items-center justify-between mb-2">
+                <Label>Продукция и остатки</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addProductField}>
+                  <Icon name="Plus" size={14} className="mr-1" />
+                  Добавить
+                </Button>
+              </div>
+              {products.map((product, index) => (
+                <div key={index} className="flex gap-2 mb-2">
+                  <Input
+                    placeholder="Название продукции"
+                    value={product.product}
+                    onChange={(e) => updateProduct(index, 'product', e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Объем (м³)"
+                    value={product.volume}
+                    onChange={(e) => updateProduct(index, 'volume', e.target.value)}
+                    className="w-32"
+                  />
+                  {products.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeProductField(index)}
+                      className="text-destructive"
+                    >
+                      <Icon name="X" size={16} />
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setIsAddDialogOpen(false);
-              setEditWarehouse(null);
-            }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddDialogOpen(false);
+                setEditWarehouse(null);
+              }}
+            >
               Отмена
             </Button>
             <Button onClick={editWarehouse ? handleEdit : handleAdd}>
