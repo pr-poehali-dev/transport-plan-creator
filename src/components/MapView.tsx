@@ -95,16 +95,26 @@ export default function MapView() {
 
               balloonContent += '</div>';
 
+              const placemarkOptions: any = {
+                iconLayout: 'default#image',
+                iconImageSize: [40, 40],
+                iconImageOffset: [-20, -40],
+                iconCaptionMaxWidth: '200'
+              };
+
+              if (location.type === 'warehouse') {
+                placemarkOptions.iconImageHref = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9IiMzQjgyRjYiLz4KPHBhdGggZD0iTTEyIDI4VjE2TDIwIDEyTDI4IDE2VjI4SDI0VjIySDIwVjI4SDEyWiIgZmlsbD0id2hpdGUiLz4KPHJlY3QgeD0iMTQiIHk9IjE4IiB3aWR0aD0iMyIgaGVpZ2h0PSIzIiBmaWxsPSIjM0I4MkY2Ii8+CjxyZWN0IHg9IjIzIiB5PSIxOCIgd2lkdGg9IjMiIGhlaWdodD0iMyIgZmlsbD0iIzNCODJGNiIvPgo8L3N2Zz4=';
+              } else {
+                placemarkOptions.iconImageHref = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9IiMxNkEzNEEiLz4KPHBhdGggZD0iTTEyIDI2VjE4SDEzVjE0SDEyVjEySDI4VjE0SDI3VjE4SDI4VjI2SDI3VjI4SDEzVjI2SDEyWiIgZmlsbD0id2hpdGUiLz4KPHJlY3QgeD0iMTUiIHk9IjE0IiB3aWR0aD0iMiIgaGVpZ2h0PSI0IiBmaWxsPSIjMTZBMzRBIi8+CjxyZWN0IHg9IjE5IiB5PSIxNCIgd2lkdGg9IjIiIGhlaWdodD0iNCIgZmlsbD0iIzE2QTM0QSIvPgo8cmVjdCB4PSIyMyIgeT0iMTQiIHdpZHRoPSIyIiBoZWlnaHQ9IjQiIGZpbGw9IiMxNkEzNEEiLz4KPHJlY3QgeD0iMTUiIHk9IjIwIiB3aWR0aD0iMiIgaGVpZ2h0PSI0IiBmaWxsPSIjMTZBMzRBIi8+CjxyZWN0IHg9IjE5IiB5PSIyMCIgd2lkdGg9IjIiIGhlaWdodD0iNCIgZmlsbD0iIzE2QTM0QSIvPgo8cmVjdCB4PSIyMyIgeT0iMjAiIHdpZHRoPSIyIiBoZWlnaHQ9IjQiIGZpbGw9IiMxNkEzNEEiLz4KPHBhdGggZD0iTTE0IDEyTDE3IDEwTDIzIDEwTDI2IDEyIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4=';
+              }
+
               const placemark = new (window as any).ymaps.Placemark(
                 coords,
                 { 
                   balloonContent: balloonContent,
                   iconCaption: location.name
                 },
-                { 
-                  preset: location.type === 'warehouse' ? 'islands#blueIcon' : 'islands#greenIcon',
-                  iconCaptionMaxWidth: '200'
-                }
+                placemarkOptions
               );
               map.geoObjects.add(placemark);
             };
