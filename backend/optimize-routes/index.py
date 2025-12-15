@@ -254,74 +254,51 @@ def build_vehicle_routes(
         
         vehicle_routes.append(main_route)
         
-        # Обновляем остатки и потребности
+        # Обновляем остатки на складах
         warehouse_id = best_trip['warehouse']['id']
-        enterprise_id = best_trip['enterprise']['id']
         product_key = best_trip['product_key']
         
         remaining_stocks[warehouse_id][product_key]['volume'] -= best_trip['volume']
         if remaining_stocks[warehouse_id][product_key]['volume'] <= 0:
             del remaining_stocks[warehouse_id][product_key]
         
-        if product_key in remaining_needs[enterprise_id]:
-            remaining_needs[enterprise_id][product_key]['volume'] -= best_trip['volume']
-            if remaining_needs[enterprise_id][product_key]['volume'] <= 0:
-                del remaining_needs[enterprise_id][product_key]
-        
         # Универсал на Заводе: загружаем щепой и везём на Павловский ДОК
         if is_universal and best_trip['enterprise']['name'] == 'Завод':
             dok_enterprise = next((e for e in enterprises if 'павловский док' in normalize_product(e['name'])), None)
             
             if dok_enterprise and 'щепа' in vehicle_products:
-                # Проверяем, нужна ли щепа на ДОКе
-                dok_needs = remaining_needs.get(dok_enterprise['id'], {})
-                chips_key = normalize_product('Щепа')
+                chips_volume = vehicle_capacity
+                chips_distance = calculate_distance(
+                    best_trip['enterprise']['lat'], best_trip['enterprise']['lng'],
+                    dok_enterprise['lat'], dok_enterprise['lng']
+                )
                 
-                if chips_key in dok_needs:
-                    chips_volume = min(vehicle_capacity, dok_needs[chips_key]['volume'])
-                    chips_distance = calculate_distance(
-                        best_trip['enterprise']['lat'], best_trip['enterprise']['lng'],
-                        dok_enterprise['lat'], dok_enterprise['lng']
-                    )
-                    
-                    chips_route = {
-                        'vehicle': vehicle_number,
-                        'vehicleType': vehicle.get('category', 'Универсал'),
-                        'product': 'Щепа',
-                        'volume': chips_volume,
-                        'from': 'Завод',
-                        'fromLat': best_trip['enterprise']['lat'],
-                        'fromLng': best_trip['enterprise']['lng'],
-                        'to': dok_enterprise['name'],
-                        'toLat': dok_enterprise['lat'],
-                        'toLng': dok_enterprise['lng'],
-                        'distance': chips_distance,
-                        'parkingDistance': 0  # уже в пути
-                    }
-                    
-                    vehicle_routes.append(chips_route)
-                    
-                    # Обновляем потребности ДОКа
-                    remaining_needs[dok_enterprise['id']][chips_key]['volume'] -= chips_volume
-                    if remaining_needs[dok_enterprise['id']][chips_key]['volume'] <= 0:
-                        del remaining_needs[dok_enterprise['id']][chips_key]
-                    
-                    # Текущая позиция = Павловский ДОК
-                    current_lat = dok_enterprise['lat']
-                    current_lng = dok_enterprise['lng']
-                    current_location = dok_enterprise['name']
-                else:
-                    # Щепа не нужна, возвращаемся на склад
-                    current_lat = best_trip['enterprise']['lat']
-                    current_lng = best_trip['enterprise']['lng']
-                    current_location = best_trip['enterprise']['name']
+                chips_route = {
+                    'vehicle': vehicle_number,
+                    'vehicleType': vehicle.get('category', 'Универсал'),
+                    'product': 'Щепа',
+                    'volume': chips_volume,
+                    'from': 'Завод',
+                    'fromLat': best_trip['enterprise']['lat'],
+                    'fromLng': best_trip['enterprise']['lng'],
+                    'to': dok_enterprise['name'],
+                    'toLat': dok_enterprise['lat'],
+                    'toLng': dok_enterprise['lng'],
+                    'distance': chips_distance,
+                    'parkingDistance': 0
+                }
+                
+                vehicle_routes.append(chips_route)
+                
+                # Текущая позиция = Павловский ДОК
+                current_lat = dok_enterprise['lat']
+                current_lng = dok_enterprise['lng']
+                current_location = dok_enterprise['name']
             else:
-                # Нет ДОКа или машина не везёт щепу
                 current_lat = best_trip['enterprise']['lat']
                 current_lng = best_trip['enterprise']['lng']
                 current_location = best_trip['enterprise']['name']
         else:
-            # Обычная машина или не завод
             current_lat = best_trip['enterprise']['lat']
             current_lng = best_trip['enterprise']['lng']
             current_location = best_trip['enterprise']['name']
@@ -368,16 +345,8 @@ def find_best_trip(
             if available_volume <= 0:
                 continue
             
-            # Ищем предприятие, которому нужен этот товар
+            # Ищем ближайшее предприятие для доставки
             for enterprise in enterprises:
-                enterprise_needs_dict = remaining_needs.get(enterprise['id'], {})
-                if product_key not in enterprise_needs_dict:
-                    continue
-                
-                needed_volume = enterprise_needs_dict[product_key]['volume']
-                if needed_volume <= 0:
-                    continue
-                
                 distance_delivery = calculate_distance(
                     warehouse['lat'], warehouse['lng'],
                     enterprise['lat'], enterprise['lng']
@@ -386,7 +355,7 @@ def find_best_trip(
                 total_distance = distance_to_warehouse + distance_delivery
                 
                 if total_distance < best_total_distance:
-                    transport_volume = min(vehicle_capacity, available_volume, needed_volume)
+                    transport_volume = min(vehicle_capacity, available_volume)
                     
                     best_trip = {
                         'warehouse': warehouse,
