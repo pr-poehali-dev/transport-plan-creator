@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css';
 export default function MapView() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
+  const polylinesRef = useRef<L.Polyline[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
 
@@ -67,12 +69,15 @@ export default function MapView() {
 
     console.log('MapView: обновление карты', { locations: locations.length, routes: routes.length });
 
-    map.eachLayer((layer) => {
-      if (layer instanceof L.Marker || layer instanceof L.Polyline) {
-        map.removeLayer(layer);
-      }
-    });
+    // Удаляем старые маркеры
+    markersRef.current.forEach(marker => map.removeLayer(marker));
+    markersRef.current = [];
 
+    // Удаляем старые polylines
+    polylinesRef.current.forEach(polyline => map.removeLayer(polyline));
+    polylinesRef.current = [];
+
+    // Добавляем маркеры локаций
     locations.forEach((loc) => {
       const icon = L.divIcon({
         className: 'custom-icon',
@@ -96,9 +101,11 @@ export default function MapView() {
         });
       }
 
-      L.marker([loc.lat, loc.lng], { icon }).addTo(map).bindPopup(popup);
+      const marker = L.marker([loc.lat, loc.lng], { icon }).addTo(map).bindPopup(popup);
+      markersRef.current.push(marker);
     });
 
+    // Добавляем маршруты (polylines)
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
     routes.forEach((r, i) => {
       if (r.fromLat && r.fromLng && r.toLat && r.toLng) {
@@ -118,7 +125,7 @@ export default function MapView() {
             console.log(`MapView: маршрут ${i + 1} получен:`, data);
             const isRealRoute = !data.fallback;
             
-            L.polyline(data.coordinates, {
+            const polyline = L.polyline(data.coordinates, {
               color: colors[i % colors.length],
               weight: isRealRoute ? 4 : 3,
               opacity: isRealRoute ? 0.8 : 0.6,
@@ -132,9 +139,11 @@ export default function MapView() {
               `<small>${data.fallback ? '⚠️ Примерный маршрут' : '✓ Маршрут по дорогам'}</small><br/>` +
               `<small>${r.reason || ''}</small>`
             );
+            
+            polylinesRef.current.push(polyline);
           })
           .catch(() => {
-            L.polyline(
+            const polyline = L.polyline(
               [[r.fromLat, r.fromLng], [r.toLat, r.toLng]],
               {
                 color: colors[i % colors.length],
@@ -146,6 +155,8 @@ export default function MapView() {
               `<strong>${r.from} → ${r.to}</strong><br/>` +
               `Объём: ${r.volume} м³`
             );
+            
+            polylinesRef.current.push(polyline);
           });
       }
     });
