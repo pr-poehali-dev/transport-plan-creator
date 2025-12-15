@@ -35,6 +35,11 @@ export default function RouteOptimization({ onShowOnMap }: RouteOptimizationProp
     const enterprises = JSON.parse(localStorage.getItem('enterprises') || '[]');
     const vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
 
+    console.log('=== НАЧАЛО РАСЧЁТА ===');
+    console.log('Склады:', warehouses);
+    console.log('Предприятия:', enterprises);
+    console.log('Транспорт:', vehicles);
+
     if (warehouses.length === 0 || enterprises.length === 0) {
       toast({
         title: 'Недостаточно данных',
