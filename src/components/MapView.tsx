@@ -1,23 +1,10 @@
-import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-const warehouseIcon = new L.Icon({
-  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9IiMzQjgyRjYiLz4KPHBhdGggZD0iTTEyIDI4VjE2TDIwIDEyTDI4IDE2VjI4SDI0VjIySDIwVjI4SDEyWiIgZmlsbD0id2hpdGUiLz4KPHJlY3QgeD0iMTQiIHk9IjE4IiB3aWR0aD0iMyIgaGVpZ2h0PSIzIiBmaWxsPSIjM0I4MkY2Ii8+CjxyZWN0IHg9IjIzIiB5PSIxOCIgd2lkdGg9IjMiIGhlaWdodD0iMyIgZmlsbD0iIzNCODJGNiIvPgo8L3N2Zz4=',
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
-  popupAnchor: [0, -40],
-});
-
-const enterpriseIcon = new L.Icon({
-  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9IiMxNkEzNEEiLz4KPHBhdGggZD0iTTEyIDI2VjE4SDEzVjE0SDEyVjEySDI4VjE0SDI3VjE4SDI4VjI2SDI3VjI4SDEzVjI2SDEyWiIgZmlsbD0id2hpdGUiLz4KPHJlY3QgeD0iMTUiIHk9IjE0IiB3aWR0aD0iMiIgaGVpZ2h0PSI0IiBmaWxsPSIjMTZBMzRBIi8+CjxyZWN0IHg9IjE5IiB5PSIxNCIgd2lkdGg9IjIiIGhlaWdodD0iNCIgZmlsbD0iIzE2QTM0QSIvPgo8cmVjdCB4PSIyMyIgeT0iMTQiIHdpZHRoPSIyIiBoZWlnaHQ9IjQiIGZpbGw9IiMxNkEzNEEiLz4KPHJlY3QgeD0iMTUiIHk9IjIwIiB3aWR0aD0iMiIgaGVpZ2h0PSI0IiBmaWxsPSIjMTZBMzRBIi8+CjxyZWN0IHg9IjE5IiB5PSIyMCIgd2lkdGg9IjIiIGhlaWdodD0iNCIgZmlsbD0iIzE2QTM0QSIvPgo8cmVjdCB4PSIyMyIgeT0iMjAiIHdpZHRoPSIyIiBoZWlnaHQ9IjQiIGZpbGw9IiMxNkEzNEEiLz4KPHBhdGggZD0iTTE0IDEyTDE3IDEwTDIzIDEwTDI2IDEyIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4=',
-  iconSize: [40, 40],
-  iconAnchor: [20, 40],
-  popupAnchor: [0, -40],
-});
-
 export default function MapView() {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
   const [locations, setLocations] = useState<any[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
 
@@ -60,124 +47,70 @@ export default function MapView() {
     return () => window.removeEventListener('storage', loadData);
   }, []);
 
-  const routeColors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
 
-  return (
-    <div className="h-full w-full">
-      <MapContainer
-        center={[53.35, 83.77]}
-        zoom={10}
-        style={{ height: '100%', width: '100%' }}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+    const map = L.map(mapRef.current).setView([53.35, 83.77], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    mapInstanceRef.current = map;
 
-        {locations.map((location) => (
-          <Marker
-            key={location.id}
-            position={[location.lat, location.lng]}
-            icon={location.type === 'warehouse' ? warehouseIcon : enterpriseIcon}
-          >
-            <Popup>
-              <div className="text-sm">
-                <strong className="text-base">{location.name}</strong>
-                <br />
-                <span className="text-gray-600">{location.location}</span>
-                <br /><br />
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
 
-                {location.type === 'warehouse' && location.products && (
-                  <>
-                    <strong>Остатки:</strong>
-                    <br />
-                    {location.products.map((p: any, idx: number) => {
-                      const latestData = p.monthlyData?.[p.monthlyData.length - 1];
-                      return (
-                        <div key={idx} className="text-xs">
-                          • {p.product}: {latestData?.volume || 0} м³
-                        </div>
-                      );
-                    })}
-                    <br />
-                    <strong>Общий объем:</strong> {location.totalVolume} м³
-                  </>
-                )}
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
 
-                {location.type === 'enterprise' && (
-                  <>
-                    <strong>Потребление:</strong>
-                    <br />
-                    {location.consumed.map((c: any, idx: number) => {
-                      const latestData = c.monthlyData?.[c.monthlyData.length - 1];
-                      return (
-                        <div key={idx} className="text-xs">
-                          • {c.product}: {latestData?.volume || 0} м³/мес
-                        </div>
-                      );
-                    })}
-                    <br />
-                    <strong>Производство:</strong>
-                    <br />
-                    {location.produced.map((p: any, idx: number) => {
-                      const latestData = p.monthlyData?.[p.monthlyData.length - 1];
-                      return (
-                        <div key={idx} className="text-xs">
-                          • {p.product}: {latestData?.volume || 0} м³/мес
-                        </div>
-                      );
-                    })}
-                  </>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+    map.eachLayer((layer) => {
+      if (layer instanceof L.Marker || layer instanceof L.Polyline) map.removeLayer(layer);
+    });
 
-        {routes.map((route, index) => {
-          if (route.fromLat && route.fromLng && route.toLat && route.toLng) {
-            return (
-              <Polyline
-                key={index}
-                positions={[
-                  [route.fromLat, route.fromLng],
-                  [route.toLat, route.toLng],
-                ]}
-                color={routeColors[index % routeColors.length]}
-                weight={4}
-                opacity={0.7}
-              >
-                <Popup>
-                  <div className="text-sm">
-                    <strong>Маршрут #{index + 1}</strong>
-                    <br />
-                    <strong>Продукт:</strong> {route.product}
-                    <br />
-                    <strong>Откуда:</strong> {route.from}
-                    <br />
-                    <strong>Куда:</strong> {route.to}
-                    <br />
-                    <strong>Объём:</strong> {route.volume} м³
-                    <br />
-                    <strong>Расстояние:</strong> {route.distance} км
-                    {route.vehicle && (
-                      <>
-                        <br /><br />
-                        <strong>Автомобиль:</strong>
-                        <br />
-                        {route.vehicle.brand} ({route.vehicle.licensePlate})
-                        <br />
-                        Вместимость: {route.vehicle.volume} м³
-                      </>
-                    )}
-                  </div>
-                </Popup>
-              </Polyline>
-            );
-          }
-          return null;
-        })}
-      </MapContainer>
-    </div>
-  );
+    locations.forEach((loc) => {
+      const icon = L.divIcon({
+        className: 'custom-icon',
+        html: `<div style="width:40px;height:40px;background:${loc.type === 'warehouse' ? '#3B82F6' : '#16A34A'};border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${loc.type === 'warehouse' ? '📦' : '🏭'}</div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 40]
+      });
+
+      let popup = `<strong>${loc.name}</strong><br/>${loc.location}<br/><br/>`;
+      if (loc.type === 'warehouse' && loc.products) {
+        popup += '<strong>Остатки:</strong><br/>';
+        loc.products.forEach((p: any) => {
+          const vol = p.monthlyData?.[p.monthlyData.length - 1]?.volume || 0;
+          popup += `• ${p.product}: ${vol} м³<br/>`;
+        });
+      } else if (loc.type === 'enterprise') {
+        popup += '<strong>Потребление:</strong><br/>';
+        loc.consumed.forEach((c: any) => {
+          const vol = c.monthlyData?.[c.monthlyData.length - 1]?.volume || 0;
+          popup += `• ${c.product}: ${vol} м³/мес<br/>`;
+        });
+      }
+
+      L.marker([loc.lat, loc.lng], { icon }).addTo(map).bindPopup(popup);
+    });
+
+    const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
+    routes.forEach((r, i) => {
+      if (r.fromLat && r.fromLng && r.toLat && r.toLng) {
+        const line = L.polyline([[r.fromLat, r.fromLng], [r.toLat, r.toLng]], {
+          color: colors[i % colors.length],
+          weight: 4,
+          opacity: 0.7
+        }).addTo(map);
+
+        line.bindPopup(`<strong>Маршрут #${i + 1}</strong><br/><strong>Продукт:</strong> ${r.product}<br/><strong>Откуда:</strong> ${r.from}<br/><strong>Куда:</strong> ${r.to}<br/><strong>Объём:</strong> ${r.volume} м³<br/><strong>Расстояние:</strong> ${r.distance} км`);
+      }
+    });
+  }, [locations, routes]);
+
+  return <div ref={mapRef} className="h-full w-full" />;
 }
