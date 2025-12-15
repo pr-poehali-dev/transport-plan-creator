@@ -196,13 +196,19 @@ export default function EnterprisePanel() {
       return;
     }
 
+    const months = [
+      'Январь 2025', 'Февраль 2025', 'Март 2025', 'Апрель 2025',
+      'Май 2025', 'Июнь 2025', 'Июль 2025', 'Август 2025',
+      'Сентябрь 2025', 'Октябрь 2025', 'Ноябрь 2025', 'Декабрь 2025'
+    ];
+
     const consumed = validConsumed.map((p) => ({ 
       product: p.product,
-      monthlyData: [{ month: 'Январь 2025', volume: parseInt(p.volume) }]
+      monthlyData: months.map(month => ({ month, volume: parseInt(p.volume) }))
     }));
     const produced = validProduced.map((p) => ({ 
       product: p.product,
-      monthlyData: [{ month: 'Январь 2025', volume: parseInt(p.volume) }]
+      monthlyData: months.map(month => ({ month, volume: parseInt(p.volume) }))
     }));
     const storage = storageItems
       .filter((s) => s.product && s.volume)
@@ -247,13 +253,19 @@ export default function EnterprisePanel() {
       return;
     }
 
+    const months = [
+      'Январь 2025', 'Февраль 2025', 'Март 2025', 'Апрель 2025',
+      'Май 2025', 'Июнь 2025', 'Июль 2025', 'Август 2025',
+      'Сентябрь 2025', 'Октябрь 2025', 'Ноябрь 2025', 'Декабрь 2025'
+    ];
+
     const consumed = validConsumed.map((p) => ({ 
       product: p.product,
-      monthlyData: [{ month: 'Январь 2025', volume: parseInt(p.volume) }]
+      monthlyData: months.map(month => ({ month, volume: parseInt(p.volume) }))
     }));
     const produced = validProduced.map((p) => ({ 
       product: p.product,
-      monthlyData: [{ month: 'Январь 2025', volume: parseInt(p.volume) }]
+      monthlyData: months.map(month => ({ month, volume: parseInt(p.volume) }))
     }));
     const storage = storageItems
       .filter((s) => s.product && s.volume)
