@@ -48,7 +48,7 @@ export default function MapView() {
     if (!mapRef.current || locations.length === 0) return;
 
     const script = document.createElement('script');
-    script.src = 'https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU';
+    script.src = 'https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU&load=package.full';
     script.async = true;
     script.onload = () => {
       if (typeof window !== 'undefined' && (window as any).ymaps) {
@@ -141,32 +141,49 @@ export default function MapView() {
             }
           });
 
-          routes.forEach((route) => {
+          routes.forEach((route, index) => {
             if (route.fromLat && route.fromLng && route.toLat && route.toLng) {
-              const polyline = new (window as any).ymaps.Polyline(
-                [
-                  [route.fromLat, route.fromLng],
-                  [route.toLat, route.toLng]
-                ],
+              const multiRoute = new (window as any).ymaps.multiRouter.MultiRoute(
                 {
-                  balloonContent: `
-                    <div style="padding: 8px;">
-                      <strong>${route.product}</strong><br/>
+                  referencePoints: [
+                    [route.fromLat, route.fromLng],
+                    [route.toLat, route.toLng]
+                  ],
+                  params: {
+                    routingMode: 'auto'
+                  }
+                },
+                {
+                  boundsAutoApply: false,
+                  wayPointVisible: false,
+                  routeActiveStrokeWidth: 5,
+                  routeActiveStrokeStyle: 'solid',
+                  routeActiveStrokeColor: `hsl(${(index * 40) % 360}, 70%, 50%)`,
+                  routeStrokeWidth: 4,
+                  routeStrokeStyle: 'solid',
+                  routeStrokeColor: `hsl(${(index * 40) % 360}, 70%, 50%)`,
+                }
+              );
+
+              multiRoute.model.events.add('requestsuccess', () => {
+                const activeRoute = multiRoute.getActiveRoute();
+                if (activeRoute) {
+                  const balloonContent = `
+                    <div style="padding: 8px; max-width: 250px;">
+                      <strong style="color: hsl(${(index * 40) % 360}, 70%, 40%);">${route.product}</strong><br/>
                       <span style="font-size: 12px;">От: ${route.from}</span><br/>
                       <span style="font-size: 12px;">До: ${route.to}</span><br/>
                       <span style="font-size: 12px;">Объём: ${route.volume} м³</span><br/>
                       <span style="font-size: 12px;">Расстояние: ${route.distance} км</span>
                       ${route.vehicle ? `<br/><br/><strong>Автомобиль:</strong><br/><span style="font-size: 11px;">${route.vehicle.brand} (${route.vehicle.licensePlate})</span>` : ''}
                     </div>
-                  `
-                },
-                {
-                  strokeColor: '#3B82F6',
-                  strokeWidth: 3,
-                  strokeOpacity: 0.7,
+                  `;
+                  
+                  activeRoute.properties.set('balloonContent', balloonContent);
                 }
-              );
-              map.geoObjects.add(polyline);
+              });
+
+              map.geoObjects.add(multiRoute);
             }
           });
         });
