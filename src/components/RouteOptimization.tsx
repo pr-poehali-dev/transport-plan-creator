@@ -119,11 +119,16 @@ export default function RouteOptimization({ onShowOnMap }: RouteOptimizationProp
       }
 
       const data = await response.json();
+      console.log('RouteOptimization: получен ответ от бэкенда:', data);
+      console.log('RouteOptimization: маршруты:', data.routes);
+      
       setRoutes(data.routes || []);
       
       if (data.routes && data.routes.length > 0) {
+        console.log('RouteOptimization: сохраняем маршруты в localStorage');
         localStorage.setItem('optimizedRoutes', JSON.stringify(data.routes));
         window.dispatchEvent(new Event('storage'));
+        console.log('RouteOptimization: отправлен storage event');
       }
 
       if (data.routes && data.routes.length > 0) {

@@ -11,6 +11,9 @@ export default function MapView() {
       const enterprises = JSON.parse(localStorage.getItem('enterprises') || '[]');
       const optimizedRoutes = JSON.parse(localStorage.getItem('optimizedRoutes') || '[]');
 
+      console.log('MapView: загружено маршрутов из localStorage:', optimizedRoutes.length);
+      console.log('MapView: маршруты:', optimizedRoutes);
+
       const allLocations = [
         ...warehouses.map((w: any) => ({
           id: `warehouse-${w.id}`,
@@ -140,7 +143,11 @@ export default function MapView() {
             }
           });
 
+          console.log('MapView: начинаем рисовать маршруты, всего:', routes.length);
+          
           routes.forEach((route, index) => {
+            console.log(`MapView: рисуем маршрут ${index + 1}:`, route);
+            
             if (route.fromLat && route.fromLng && route.toLat && route.toLng) {
               const multiRoute = new (window as any).ymaps.multiRouter.MultiRoute(
                 {
