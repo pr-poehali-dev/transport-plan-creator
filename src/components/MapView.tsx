@@ -65,6 +65,8 @@ export default function MapView() {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
 
+    console.log('MapView: обновление карты', { locations: locations.length, routes: routes.length });
+
     map.eachLayer((layer) => {
       if (layer instanceof L.Marker || layer instanceof L.Polyline) {
         map.removeLayer(layer);
@@ -100,6 +102,7 @@ export default function MapView() {
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
     routes.forEach((r, i) => {
       if (r.fromLat && r.fromLng && r.toLat && r.toLng) {
+        console.log(`MapView: строим маршрут ${i + 1}:`, r);
         fetch('https://functions.poehali.dev/8c14fdf7-df73-472b-acb5-44da8dd5152b', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -112,6 +115,7 @@ export default function MapView() {
         })
           .then(res => res.json())
           .then(data => {
+            console.log(`MapView: маршрут ${i + 1} получен:`, data);
             const isRealRoute = !data.fallback;
             
             L.polyline(data.coordinates, {
