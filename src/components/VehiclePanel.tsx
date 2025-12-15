@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
+import * as XLSX from 'xlsx';
 
 interface Vehicle {
   id: number;
@@ -97,6 +98,7 @@ export default function VehiclePanel() {
     enterprise: '',
     schedule: '',
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     localStorage.setItem('vehicles', JSON.stringify(vehicles));
@@ -205,6 +207,79 @@ export default function VehiclePanel() {
     setIsAddDialogOpen(true);
   };
 
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+        if (jsonData.length < 2) {
+          toast({
+            title: 'Ошибка',
+            description: 'Excel файл пустой или не содержит данных',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const importedVehicles: Vehicle[] = [];
+        const maxId = Math.max(0, ...vehicles.map((v) => v.id));
+
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          if (!row[0] || !row[1]) continue;
+
+          const vehicle: Vehicle = {
+            id: maxId + i,
+            brand: String(row[0] || ''),
+            trailerType: String(row[1] || 'Цистерна'),
+            volume: Number(row[2]) || 20,
+            productTypes: String(row[3] || 'Нефтепродукты').split(',').map(p => p.trim()),
+            enterprise: String(row[4] || 'Не указано'),
+            schedule: String(row[5] || '5/2'),
+            status: String(row[6] || 'active').toLowerCase() === 'активен' || String(row[6] || 'active').toLowerCase() === 'active' ? 'active' : 'maintenance',
+          };
+
+          importedVehicles.push(vehicle);
+        }
+
+        if (importedVehicles.length === 0) {
+          toast({
+            title: 'Ошибка',
+            description: 'Не удалось импортировать данные. Проверьте формат файла.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        setVehicles([...vehicles, ...importedVehicles]);
+        toast({
+          title: 'Успешно',
+          description: `Импортировано ${importedVehicles.length} автомобилей`,
+        });
+      } catch (error) {
+        console.error('Import error:', error);
+        toast({
+          title: 'Ошибка импорта',
+          description: 'Не удалось прочитать файл. Убедитесь, что это корректный Excel файл.',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const activeVehicles = vehicles.filter((v) => v.status === 'active').length;
   const maintenanceVehicles = vehicles.filter((v) => v.status === 'maintenance').length;
 
@@ -264,7 +339,18 @@ export default function VehiclePanel() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Автопарк</h3>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleImportExcel}
+                className="hidden"
+              />
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
                 <Icon name="Upload" size={16} className="mr-2" />
                 Импорт из Excel
               </Button>
