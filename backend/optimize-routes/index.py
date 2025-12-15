@@ -149,6 +149,13 @@ def optimize_routes_full(warehouses: List[Dict], enterprises: List[Dict], vehicl
     print(f"=== Товары на складах: {sorted(all_warehouse_products)}")
     print(f"=== Товары, которые везут машины: {sorted(all_vehicle_products)}")
     
+    # Логирование потребностей предприятий
+    for eid, needs in remaining_needs.items():
+        if needs:
+            enterprise = next((e for e in enterprises if e['id'] == eid), None)
+            if enterprise:
+                print(f"=== Предприятие {enterprise['name']}: нужно {needs}")
+    
     for vehicle in active_vehicles:
         vehicle_routes = build_vehicle_routes(
             vehicle, warehouses, enterprises, remaining_stocks, remaining_needs
