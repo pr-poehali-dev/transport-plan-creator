@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-routing-machine';
-import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 
 export default function MapView() {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
   const [locations, setLocations] = useState<any[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     const loadData = () => {
@@ -25,7 +21,6 @@ export default function MapView() {
           lat: w.lat,
           lng: w.lng,
           products: w.products,
-          totalVolume: w.totalVolume,
         })),
         ...enterprises.map((e: any) => ({
           id: `enterprise-${e.id}`,
@@ -35,8 +30,6 @@ export default function MapView() {
           lat: e.lat,
           lng: e.lng,
           consumed: e.consumed || [],
-          produced: e.produced || [],
-          storage: e.storage || [],
         })),
       ];
 
@@ -50,105 +43,104 @@ export default function MapView() {
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+    if (!mapRef.current || mapReady) return;
 
-    const map = L.map(mapRef.current).setView([53.35, 83.77], 10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
-    mapInstanceRef.current = map;
+    const script = document.createElement('script');
+    script.src = 'https://api-maps.yandex.ru/2.1/?lang=ru_RU';
+    script.async = true;
+    script.onload = () => {
+      (window as any).ymaps.ready(() => {
+        const map = new (window as any).ymaps.Map(mapRef.current, {
+          center: [53.35, 83.77],
+          zoom: 10,
+          controls: ['zoomControl', 'fullscreenControl']
+        });
+
+        (mapRef.current as any)._ymapInstance = map;
+        setMapReady(true);
+      });
+    };
+    document.head.appendChild(script);
 
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+      if ((mapRef.current as any)?._ymapInstance) {
+        (mapRef.current as any)._ymapInstance.destroy();
       }
     };
   }, []);
 
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    const map = mapInstanceRef.current;
+    if (!mapReady || !(mapRef.current as any)?._ymapInstance) return;
 
-    map.eachLayer((layer) => {
-      if (layer instanceof L.Marker || layer instanceof L.Polyline) map.removeLayer(layer);
-    });
+    const map = (mapRef.current as any)._ymapInstance;
+    const ymaps = (window as any).ymaps;
+
+    map.geoObjects.removeAll();
 
     locations.forEach((loc) => {
-      const icon = L.divIcon({
-        className: 'custom-icon',
-        html: `<div style="width:40px;height:40px;background:${loc.type === 'warehouse' ? '#3B82F6' : '#16A34A'};border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${loc.type === 'warehouse' ? '📦' : '🏭'}</div>`,
-        iconSize: [40, 40],
-        iconAnchor: [20, 40]
-      });
-
-      let popup = `<strong>${loc.name}</strong><br/>${loc.location}<br/><br/>`;
-      if (loc.type === 'warehouse' && loc.products) {
-        popup += '<strong>Остатки:</strong><br/>';
-        loc.products.forEach((p: any) => {
-          const vol = p.monthlyData?.[p.monthlyData.length - 1]?.volume || 0;
-          popup += `• ${p.product}: ${vol} м³<br/>`;
-        });
-      } else if (loc.type === 'enterprise') {
-        popup += '<strong>Потребление:</strong><br/>';
-        loc.consumed.forEach((c: any) => {
-          const vol = c.monthlyData?.[c.monthlyData.length - 1]?.volume || 0;
-          popup += `• ${c.product}: ${vol} м³/мес<br/>`;
-        });
-      }
-
-      L.marker([loc.lat, loc.lng], { icon }).addTo(map).bindPopup(popup);
+      const placemark = new ymaps.Placemark(
+        [loc.lat, loc.lng],
+        {
+          balloonContentHeader: `<strong>${loc.name}</strong>`,
+          balloonContentBody: loc.location,
+          hintContent: loc.name
+        },
+        {
+          preset: loc.type === 'warehouse' ? 'islands#blueCircleDotIcon' : 'islands#greenCircleDotIcon',
+          iconColor: loc.type === 'warehouse' ? '#3B82F6' : '#16A34A'
+        }
+      );
+      map.geoObjects.add(placemark);
     });
 
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
     routes.forEach((r, i) => {
       if (r.fromLat && r.fromLng && r.toLat && r.toLng) {
-        try {
-          const routingControl = (L as any).Routing.control({
-            waypoints: [
-              L.latLng(r.fromLat, r.fromLng),
-              L.latLng(r.toLat, r.toLng)
-            ],
-            router: (L as any).Routing.osrmv1({
-              serviceUrl: 'https://router.project-osrm.org/route/v1',
-              timeout: 5000
-            }),
-            lineOptions: {
-              styles: [{ color: colors[i % colors.length], weight: 5, opacity: 0.8 }],
-              addWaypoints: false
-            },
-            show: false,
-            addWaypoints: false,
-            routeWhileDragging: false,
-            draggableWaypoints: false,
-            fitSelectedRoutes: false,
-            showAlternatives: false,
-            createMarker: () => null
-          });
-
-          routingControl.on('routesfound', (e: any) => {
-            console.log(`Маршрут ${i + 1} построен по дорогам`);
-          });
-
-          routingControl.on('routingerror', () => {
-            console.log(`Ошибка построения маршрута ${i + 1}, используем прямую линию`);
-            L.polyline(
+        // Запрос маршрута через Яндекс.Маршрутизатор
+        fetch('https://functions.poehali.dev/92bc3ef0-4965-40f2-8e7e-f8edbe8dd6db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromLat: r.fromLat,
+            fromLng: r.fromLng,
+            toLat: r.toLat,
+            toLng: r.toLng
+          })
+        })
+          .then(res => res.json())
+          .then(data => {
+            const polyline = new ymaps.Polyline(
+              data.coordinates || [[r.fromLat, r.fromLng], [r.toLat, r.toLng]],
+              {
+                balloonContent: `<strong>${r.from} → ${r.to}</strong><br/>Объём: ${r.volume} м³<br/>Расстояние: ${data.distance || r.distance} км`
+              },
+              {
+                strokeColor: colors[i % colors.length],
+                strokeWidth: 4,
+                strokeOpacity: 0.8
+              }
+            );
+            map.geoObjects.add(polyline);
+          })
+          .catch(() => {
+            // Fallback: прямая линия
+            const polyline = new ymaps.Polyline(
               [[r.fromLat, r.fromLng], [r.toLat, r.toLng]],
-              { color: colors[i % colors.length], weight: 4, opacity: 0.7, dashArray: '10, 10' }
-            ).addTo(map).bindPopup(`<strong>Маршрут #${i + 1}</strong> (прямая линия)<br/>${r.from} → ${r.to}`);
+              {
+                balloonContent: `<strong>${r.from} → ${r.to}</strong><br/>Объём: ${r.volume} м³`
+              },
+              {
+                strokeColor: colors[i % colors.length],
+                strokeWidth: 3,
+                strokeOpacity: 0.6,
+                strokeStyle: 'shortdash'
+              }
+            );
+            map.geoObjects.add(polyline);
           });
-
-          routingControl.addTo(map);
-        } catch (error) {
-          console.error('Routing error:', error);
-          L.polyline(
-            [[r.fromLat, r.fromLng], [r.toLat, r.toLng]],
-            { color: colors[i % colors.length], weight: 4, opacity: 0.7, dashArray: '10, 10' }
-          ).addTo(map).bindPopup(`<strong>Маршрут #${i + 1}</strong> (прямая линия)<br/>${r.from} → ${r.to}`);
-        }
       }
     });
-  }, [locations, routes]);
+  }, [mapReady, locations, routes]);
 
   return <div ref={mapRef} className="h-full w-full" />;
 }
