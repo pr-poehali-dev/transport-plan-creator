@@ -71,7 +71,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     except Exception as e:
         print(f'OSRM error: {str(e)}')
     
-    # Fallback: прямая линия с примерным расчётом
+    # Fallback: изогнутая линия с примерным расчётом
     from math import radians, sin, cos, sqrt, atan2
     
     R = 6371
@@ -84,11 +84,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     c = 2 * atan2(sqrt(a), sqrt(1-a))
     distance = R * c
     
+    # Создаём изогнутую линию с промежуточными точками (имитация дороги)
+    curve_coords = []
+    steps = 8  # Количество промежуточных точек
+    for i in range(steps + 1):
+        t = i / steps
+        # Интерполяция с небольшим отклонением для имитации дороги
+        mid_lat = from_lat + (to_lat - from_lat) * t
+        mid_lng = from_lng + (to_lng - from_lng) * t
+        
+        # Добавляем небольшое отклонение для создания кривой
+        if 0 < i < steps:
+            offset = sin(t * 3.14159) * 0.02  # Максимальное отклонение 0.02 градуса
+            mid_lat += offset * (to_lng - from_lng) / abs(to_lng - from_lng) if to_lng != from_lng else 0
+        
+        curve_coords.append([mid_lat, mid_lng])
+    
     return {
         'statusCode': 200,
         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
         'body': json.dumps({
-            'coordinates': [[from_lat, from_lng], [to_lat, to_lng]],
+            'coordinates': curve_coords,
             'distance': round(distance * 1.3, 1),
             'duration': round(distance * 1.3 / 60 * 60),
             'fallback': True
