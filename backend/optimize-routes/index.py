@@ -156,7 +156,8 @@ def optimize_routes_full(warehouses: List[Dict], enterprises: List[Dict], vehicl
         routes.extend(vehicle_routes)
         
         if vehicle_routes:
-            print(f"=== Машина {vehicle['number']}: создано {len(vehicle_routes)} рейсов")
+            vehicle_id = vehicle.get('licensePlate') or vehicle.get('number', 'Неизвестно')
+            print(f"=== Машина {vehicle_id}: создано {len(vehicle_routes)} рейсов")
     
     # Проверяем, что осталось на складах
     total_remaining = sum(
@@ -190,7 +191,7 @@ def build_vehicle_routes(
     """
     vehicle_routes = []
     vehicle_capacity = vehicle.get('volume', 0)
-    vehicle_number = vehicle.get('number', 'Неизвестно')
+    vehicle_number = vehicle.get('licensePlate') or vehicle.get('number', 'Неизвестно')
     vehicle_products = [normalize_product(p) for p in vehicle.get('productTypes', [])]
     
     # Стоянка машины (предприятие)
