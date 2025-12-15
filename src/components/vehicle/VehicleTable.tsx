@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 export interface Vehicle {
   id: number;
   brand: string;
+  licensePlate: string;
   trailerType: string;
   volume: number;
   productTypes: string[];
@@ -26,6 +27,7 @@ export default function VehicleTable({ vehicles, onEdit, onDelete }: VehicleTabl
       <TableHeader>
         <TableRow>
           <TableHead>Марка</TableHead>
+          <TableHead>Гос номер</TableHead>
           <TableHead>Тип прицепа</TableHead>
           <TableHead>Объем</TableHead>
           <TableHead>Виды продукции</TableHead>
@@ -39,6 +41,7 @@ export default function VehicleTable({ vehicles, onEdit, onDelete }: VehicleTabl
         {vehicles.map((vehicle) => (
           <TableRow key={vehicle.id}>
             <TableCell className="font-medium">{vehicle.brand}</TableCell>
+            <TableCell className="font-mono text-sm">{vehicle.licensePlate}</TableCell>
             <TableCell className="text-muted-foreground">{vehicle.trailerType}</TableCell>
             <TableCell>
               <span className="font-semibold">{vehicle.volume} м³</span>

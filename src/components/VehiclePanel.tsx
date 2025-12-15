@@ -22,6 +22,7 @@ const initialVehicles: Vehicle[] = [
   {
     id: 1,
     brand: 'КАМАЗ 65115',
+    licensePlate: 'А1234КБ22',
     trailerType: 'Цистерна',
     volume: 20,
     productTypes: ['Бензин АИ-95', 'Бензин АИ-92'],
@@ -32,6 +33,7 @@ const initialVehicles: Vehicle[] = [
   {
     id: 2,
     brand: 'MAN TGX 18.500',
+    licensePlate: 'А5678МБ77',
     trailerType: 'Цистерна',
     volume: 25,
     productTypes: ['Дизель'],
@@ -42,6 +44,7 @@ const initialVehicles: Vehicle[] = [
   {
     id: 3,
     brand: 'Volvo FH16',
+    licensePlate: 'А9999АА22',
     trailerType: 'Цистерна',
     volume: 30,
     productTypes: ['Бензин АИ-95', 'Дизель'],
@@ -52,6 +55,7 @@ const initialVehicles: Vehicle[] = [
   {
     id: 4,
     brand: 'КАМАЗ 43118',
+    licensePlate: 'А4321ТА22',
     trailerType: 'Цистерна',
     volume: 18,
     productTypes: ['Бензин АИ-92'],
@@ -72,6 +76,7 @@ export default function VehiclePanel() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     brand: '',
+    licensePlate: '',
     trailerType: '',
     volume: '',
     productTypes: '',
@@ -98,6 +103,7 @@ export default function VehiclePanel() {
   const handleAdd = () => {
     if (
       !formData.brand ||
+      !formData.licensePlate ||
       !formData.trailerType ||
       !formData.volume ||
       !formData.productTypes ||
@@ -115,6 +121,7 @@ export default function VehiclePanel() {
     const newVehicle: Vehicle = {
       id: Math.max(0, ...vehicles.map((v) => v.id)) + 1,
       brand: formData.brand,
+      licensePlate: formData.licensePlate,
       trailerType: formData.trailerType,
       volume: parseInt(formData.volume),
       productTypes: formData.productTypes.split(',').map((p) => p.trim()),
@@ -129,7 +136,7 @@ export default function VehiclePanel() {
       description: 'Новое ТС успешно добавлено в автопарк',
     });
     setIsAddDialogOpen(false);
-    setFormData({ brand: '', trailerType: '', volume: '', productTypes: '', enterprise: '', schedule: '' });
+    setFormData({ brand: '', licensePlate: '', trailerType: '', volume: '', productTypes: '', enterprise: '', schedule: '' });
   };
 
   const handleEdit = () => {
@@ -137,6 +144,7 @@ export default function VehiclePanel() {
 
     if (
       !formData.brand ||
+      !formData.licensePlate ||
       !formData.trailerType ||
       !formData.volume ||
       !formData.productTypes ||
@@ -154,6 +162,7 @@ export default function VehiclePanel() {
     const updatedVehicle: Vehicle = {
       ...editVehicle,
       brand: formData.brand,
+      licensePlate: formData.licensePlate,
       trailerType: formData.trailerType,
       volume: parseInt(formData.volume),
       productTypes: formData.productTypes.split(',').map((p) => p.trim()),
@@ -167,13 +176,14 @@ export default function VehiclePanel() {
       description: 'Информация о ТС успешно обновлена',
     });
     setEditVehicle(null);
-    setFormData({ brand: '', trailerType: '', volume: '', productTypes: '', enterprise: '', schedule: '' });
+    setFormData({ brand: '', licensePlate: '', trailerType: '', volume: '', productTypes: '', enterprise: '', schedule: '' });
   };
 
   const openEditDialog = (vehicle: Vehicle) => {
     setEditVehicle(vehicle);
     setFormData({
       brand: vehicle.brand,
+      licensePlate: vehicle.licensePlate,
       trailerType: vehicle.trailerType,
       volume: vehicle.volume.toString(),
       productTypes: vehicle.productTypes.join(', '),
@@ -183,7 +193,7 @@ export default function VehiclePanel() {
   };
 
   const openAddDialog = () => {
-    setFormData({ brand: '', trailerType: '', volume: '', productTypes: '', enterprise: '', schedule: '' });
+    setFormData({ brand: '', licensePlate: '', trailerType: '', volume: '', productTypes: '', enterprise: '', schedule: '' });
     setIsAddDialogOpen(true);
   };
 
@@ -219,12 +229,13 @@ export default function VehiclePanel() {
           const vehicle: Vehicle = {
             id: maxId + i,
             brand: String(row[0] || ''),
-            trailerType: String(row[1] || 'Цистерна'),
-            volume: Number(row[2]) || 20,
-            productTypes: String(row[3] || 'Нефтепродукты').split(',').map(p => p.trim()),
-            enterprise: String(row[4] || 'Не указано'),
-            schedule: String(row[5] || '5/2'),
-            status: String(row[6] || 'active').toLowerCase() === 'активен' || String(row[6] || 'active').toLowerCase() === 'active' ? 'active' : 'maintenance',
+            licensePlate: String(row[1] || ''),
+            trailerType: String(row[2] || 'Цистерна'),
+            volume: Number(row[3]) || 20,
+            productTypes: String(row[4] || 'Нефтепродукты').split(',').map(p => p.trim()),
+            enterprise: String(row[5] || 'Не указано'),
+            schedule: String(row[6] || '5/2'),
+            status: String(row[7] || 'active').toLowerCase() === 'активен' || String(row[7] || 'active').toLowerCase() === 'active' ? 'active' : 'maintenance',
           };
 
           importedVehicles.push(vehicle);

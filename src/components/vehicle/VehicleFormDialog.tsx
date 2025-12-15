@@ -15,6 +15,7 @@ interface VehicleFormDialogProps {
   onOpenChange: (open: boolean) => void;
   formData: {
     brand: string;
+    licensePlate: string;
     trailerType: string;
     volume: string;
     productTypes: string;
@@ -49,6 +50,15 @@ export default function VehicleFormDialog({
               placeholder="КАМАЗ 65115"
               value={formData.brand}
               onChange={(e) => onFormDataChange('brand', e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="licensePlate">Гос номер</Label>
+            <Input
+              id="licensePlate"
+              placeholder="А1234КБ22"
+              value={formData.licensePlate}
+              onChange={(e) => onFormDataChange('licensePlate', e.target.value)}
             />
           </div>
           <div>
