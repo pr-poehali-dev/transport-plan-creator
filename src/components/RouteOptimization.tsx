@@ -58,6 +58,7 @@ export default function RouteOptimization({ onShowOnMap }: RouteOptimizationProp
             }
           });
         }
+        console.log(`Склад ${w.name}: координаты lat=${w.lat}, lng=${w.lng}`);
         return {
           id: w.id,
           name: w.name,
@@ -80,6 +81,7 @@ export default function RouteOptimization({ onShowOnMap }: RouteOptimizationProp
             }
           });
         }
+        console.log(`Предприятие ${e.name}: координаты lat=${e.lat}, lng=${e.lng}`);
         return {
           id: e.id,
           name: e.name,
