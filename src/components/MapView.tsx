@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-
-declare global {
-  interface Window {
-    DG: any;
-  }
-}
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 export default function MapView() {
   const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
   const [locations, setLocations] = useState<any[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
-  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     const loadData = () => {
@@ -49,52 +45,35 @@ export default function MapView() {
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current || mapReady) return;
+    if (!mapRef.current || mapInstanceRef.current) return;
 
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://maps.api.2gis.ru/2.0/css/DGCustomization.css';
-    document.head.appendChild(link);
-
-    const script = document.createElement('script');
-    script.src = 'https://maps.api.2gis.ru/2.0/loader.js?pkg=full';
-    script.async = true;
-    script.onload = () => {
-      window.DG.then(() => {
-        const map = window.DG.map(mapRef.current, {
-          center: [53.35, 83.77],
-          zoom: 10
-        });
-
-        (mapRef.current as any)._dgMapInstance = map;
-        setMapReady(true);
-      });
-    };
-    document.head.appendChild(script);
+    const map = L.map(mapRef.current).setView([53.35, 83.77], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    mapInstanceRef.current = map;
 
     return () => {
-      if ((mapRef.current as any)?._dgMapInstance) {
-        (mapRef.current as any)._dgMapInstance.remove();
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
       }
     };
   }, []);
 
   useEffect(() => {
-    if (!mapReady || !(mapRef.current as any)?._dgMapInstance) return;
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
 
-    const map = (mapRef.current as any)._dgMapInstance;
-    const DG = window.DG;
-
-    // Удаляем старые слои
-    map.eachLayer((layer: any) => {
-      if (layer instanceof DG.Marker || layer instanceof DG.Polyline) {
+    map.eachLayer((layer) => {
+      if (layer instanceof L.Marker || layer instanceof L.Polyline) {
         map.removeLayer(layer);
       }
     });
 
-    // Добавляем маркеры
     locations.forEach((loc) => {
-      const icon = DG.divIcon({
+      const icon = L.divIcon({
+        className: 'custom-icon',
         html: `<div style="width:40px;height:40px;background:${loc.type === 'warehouse' ? '#3B82F6' : '#16A34A'};border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:20px;">${loc.type === 'warehouse' ? '📦' : '🏭'}</div>`,
         iconSize: [40, 40],
         iconAnchor: [20, 40]
@@ -115,43 +94,41 @@ export default function MapView() {
         });
       }
 
-      DG.marker([loc.lat, loc.lng], { icon }).addTo(map).bindPopup(popup);
+      L.marker([loc.lat, loc.lng], { icon }).addTo(map).bindPopup(popup);
     });
 
-    // Строим маршруты через 2GIS API
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
     routes.forEach((r, i) => {
       if (r.fromLat && r.fromLng && r.toLat && r.toLng) {
-        fetch('https://functions.poehali.dev/4f2932d6-0c4c-4de7-aa20-8cc79feb8d6f', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fromLat: r.fromLat,
-            fromLng: r.fromLng,
-            toLat: r.toLat,
-            toLng: r.toLng
-          })
-        })
+        const url = `https://router.project-osrm.org/route/v1/driving/${r.fromLng},${r.fromLat};${r.toLng},${r.toLat}?overview=full&geometries=geojson`;
+        
+        fetch(url)
           .then(res => res.json())
           .then(data => {
-            const coords = data.coordinates || [[r.fromLat, r.fromLng], [r.toLat, r.toLng]];
-            const polyline = DG.polyline(coords, {
-              color: colors[i % colors.length],
-              weight: 4,
-              opacity: 0.8
-            }).addTo(map);
-
-            polyline.bindPopup(
-              `<strong>${r.from} → ${r.to}</strong><br/>` +
-              `Продукт: ${r.product}<br/>` +
-              `Объём: ${r.volume} м³<br/>` +
-              `Расстояние: ${data.distance || r.distance} км<br/>` +
-              `<small>${r.reason || ''}</small>`
-            );
+            if (data.code === 'Ok' && data.routes?.[0]) {
+              const route = data.routes[0];
+              const coords = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
+              const distance = (route.distance / 1000).toFixed(1);
+              const duration = Math.round(route.duration / 60);
+              
+              L.polyline(coords, {
+                color: colors[i % colors.length],
+                weight: 4,
+                opacity: 0.8
+              }).addTo(map).bindPopup(
+                `<strong>${r.from} → ${r.to}</strong><br/>` +
+                `Продукт: ${r.product}<br/>` +
+                `Объём: ${r.volume} м³<br/>` +
+                `Расстояние: ${distance} км<br/>` +
+                `Время: ~${duration} мин<br/>` +
+                `<small>${r.reason || ''}</small>`
+              );
+            } else {
+              throw new Error('OSRM error');
+            }
           })
           .catch(() => {
-            // Fallback: прямая линия
-            DG.polyline(
+            L.polyline(
               [[r.fromLat, r.fromLng], [r.toLat, r.toLng]],
               {
                 color: colors[i % colors.length],
@@ -166,7 +143,7 @@ export default function MapView() {
           });
       }
     });
-  }, [mapReady, locations, routes]);
+  }, [locations, routes]);
 
   return <div ref={mapRef} className="h-full w-full" />;
 }
