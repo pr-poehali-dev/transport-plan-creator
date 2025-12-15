@@ -47,13 +47,35 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     routes = optimize_routes(warehouses, enterprises, month)
     
+    warehouse_stocks_summary = []
+    for w in warehouses:
+        stocks = w.get('stocks', {})
+        warehouse_stocks_summary.append({
+            'name': w.get('name', 'Unknown'),
+            'stocks': stocks,
+            'total_products': len(stocks)
+        })
+    
+    enterprise_needs_summary = []
+    for e in enterprises:
+        needs = e.get('needs', {})
+        enterprise_needs_summary.append({
+            'name': e.get('name', 'Unknown'),
+            'needs': needs,
+            'total_products': len(needs)
+        })
+    
     return {
         'statusCode': 200,
         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
         'body': json.dumps({
             'month': month,
             'routes': routes,
-            'total_routes': len(routes)
+            'total_routes': len(routes),
+            'debug': {
+                'warehouses': warehouse_stocks_summary,
+                'enterprises': enterprise_needs_summary
+            }
         }),
         'isBase64Encoded': False
     }

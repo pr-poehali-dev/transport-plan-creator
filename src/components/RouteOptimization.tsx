@@ -115,10 +115,24 @@ export default function RouteOptimization() {
       const data = await response.json();
       setRoutes(data.routes || []);
 
-      toast({
-        title: 'Маршруты рассчитаны',
-        description: `Найдено ${data.routes?.length || 0} оптимальных маршрутов`,
-      });
+      if (data.routes && data.routes.length > 0) {
+        toast({
+          title: 'Маршруты рассчитаны',
+          description: `Найдено ${data.routes.length} оптимальных маршрутов`,
+        });
+      } else {
+        const debugInfo = data.debug || {};
+        const warehousesWithStocks = debugInfo.warehouses?.filter((w: any) => w.total_products > 0) || [];
+        const enterprisesWithNeeds = debugInfo.enterprises?.filter((e: any) => e.total_products > 0) || [];
+        
+        toast({
+          title: 'Маршруты не найдены',
+          description: `Проверьте данные: складов с товаром - ${warehousesWithStocks.length}, предприятий с потребностями - ${enterprisesWithNeeds.length}`,
+          variant: 'destructive',
+        });
+        
+        console.log('Debug info:', debugInfo);
+      }
     } catch (error) {
       console.error('Error optimizing routes:', error);
       toast({
