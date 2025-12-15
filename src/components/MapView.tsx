@@ -47,12 +47,11 @@ export default function MapView() {
   useEffect(() => {
     if (!mapRef.current || locations.length === 0) return;
 
-    const script = document.createElement('script');
-    script.src = 'https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU&load=package.full';
-    script.async = true;
-    script.onload = () => {
+    const initMap = () => {
       if (typeof window !== 'undefined' && (window as any).ymaps) {
         (window as any).ymaps.ready(() => {
+          if (!mapRef.current) return;
+          
           const map = new (window as any).ymaps.Map(mapRef.current, {
             center: [53.35, 83.77],
             zoom: 10,
@@ -189,19 +188,21 @@ export default function MapView() {
         });
       }
     };
-    
-    const existingScript = document.querySelector('script[src*="api-maps.yandex.ru"]');
-    if (!existingScript) {
-      document.head.appendChild(script);
-    } else if ((window as any).ymaps) {
-      script.onload(new Event('load'));
-    }
 
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
+    if ((window as any).ymaps) {
+      initMap();
+    } else {
+      const existingScript = document.querySelector('script[src*="api-maps.yandex.ru"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', initMap);
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU&load=package.full';
+        script.async = true;
+        script.onload = initMap;
+        document.body.appendChild(script);
       }
-    };
+    }
   }, [locations, routes]);
 
   return <div ref={mapRef} className="w-full h-full bg-muted"></div>;
