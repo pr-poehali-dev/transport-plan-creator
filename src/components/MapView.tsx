@@ -103,26 +103,49 @@ export default function MapView() {
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
     routes.forEach((r, i) => {
       if (r.fromLat && r.fromLng && r.toLat && r.toLng) {
-        (L as any).Routing.control({
-          waypoints: [
-            L.latLng(r.fromLat, r.fromLng),
-            L.latLng(r.toLat, r.toLng)
-          ],
-          router: (L as any).Routing.osrmv1({
-            serviceUrl: 'https://router.project-osrm.org/route/v1'
-          }),
-          lineOptions: {
-            styles: [{ color: colors[i % colors.length], weight: 4, opacity: 0.7 }],
-            addWaypoints: false
-          },
-          show: false,
-          addWaypoints: false,
-          routeWhileDragging: false,
-          draggableWaypoints: false,
-          fitSelectedRoutes: false,
-          showAlternatives: false,
-          createMarker: () => null
-        }).addTo(map);
+        try {
+          const routingControl = (L as any).Routing.control({
+            waypoints: [
+              L.latLng(r.fromLat, r.fromLng),
+              L.latLng(r.toLat, r.toLng)
+            ],
+            router: (L as any).Routing.osrmv1({
+              serviceUrl: 'https://router.project-osrm.org/route/v1',
+              timeout: 5000
+            }),
+            lineOptions: {
+              styles: [{ color: colors[i % colors.length], weight: 5, opacity: 0.8 }],
+              addWaypoints: false
+            },
+            show: false,
+            addWaypoints: false,
+            routeWhileDragging: false,
+            draggableWaypoints: false,
+            fitSelectedRoutes: false,
+            showAlternatives: false,
+            createMarker: () => null
+          });
+
+          routingControl.on('routesfound', (e: any) => {
+            console.log(`Маршрут ${i + 1} построен по дорогам`);
+          });
+
+          routingControl.on('routingerror', () => {
+            console.log(`Ошибка построения маршрута ${i + 1}, используем прямую линию`);
+            L.polyline(
+              [[r.fromLat, r.fromLng], [r.toLat, r.toLng]],
+              { color: colors[i % colors.length], weight: 4, opacity: 0.7, dashArray: '10, 10' }
+            ).addTo(map).bindPopup(`<strong>Маршрут #${i + 1}</strong> (прямая линия)<br/>${r.from} → ${r.to}`);
+          });
+
+          routingControl.addTo(map);
+        } catch (error) {
+          console.error('Routing error:', error);
+          L.polyline(
+            [[r.fromLat, r.fromLng], [r.toLat, r.toLng]],
+            { color: colors[i % colors.length], weight: 4, opacity: 0.7, dashArray: '10, 10' }
+          ).addTo(map).bindPopup(`<strong>Маршрут #${i + 1}</strong> (прямая линия)<br/>${r.from} → ${r.to}`);
+        }
       }
     });
   }, [locations, routes]);
