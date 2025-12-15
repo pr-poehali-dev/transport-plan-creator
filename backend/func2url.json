@@ -1,6 +1,4 @@
 {
   "osrm-route": "https://functions.poehali.dev/8c14fdf7-df73-472b-acb5-44da8dd5152b",
-  "dgis-route": "https://functions.poehali.dev/4f2932d6-0c4c-4de7-aa20-8cc79feb8d6f",
-  "yandex-route": "https://functions.poehali.dev/92bc3ef0-4965-40f2-8e7e-f8edbe8dd6db",
   "optimize-routes": "https://functions.poehali.dev/731429fc-10d1-48ba-8c78-e761ff3f835f"
 }

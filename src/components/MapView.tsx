@@ -109,8 +109,8 @@ export default function MapView() {
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
     routes.forEach((r, i) => {
       if (r.fromLat && r.fromLng && r.toLat && r.toLng) {
-        console.log(`MapView: строим 2GIS маршрут ${i + 1}:`, r);
-        fetch('https://functions.poehali.dev/4f2932d6-0c4c-4de7-aa20-8cc79feb8d6f', {
+        console.log(`MapView: строим OSRM маршрут ${i + 1}:`, r);
+        fetch('https://functions.poehali.dev/8c14fdf7-df73-472b-acb5-44da8dd5152b', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -122,7 +122,7 @@ export default function MapView() {
         })
           .then(res => res.json())
           .then(data => {
-            console.log(`MapView: 2GIS маршрут ${i + 1} получен:`, data);
+            console.log(`MapView: OSRM маршрут ${i + 1} получен:`, data);
             const isRealRoute = !data.fallback;
             
             const polyline = L.polyline(data.coordinates, {
