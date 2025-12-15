@@ -100,32 +100,34 @@ export default function MapView() {
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
     routes.forEach((r, i) => {
       if (r.fromLat && r.fromLng && r.toLat && r.toLng) {
-        const url = `https://router.project-osrm.org/route/v1/driving/${r.fromLng},${r.fromLat};${r.toLng},${r.toLat}?overview=full&geometries=geojson`;
-        
-        fetch(url)
+        fetch('https://functions.poehali.dev/8c14fdf7-df73-472b-acb5-44da8dd5152b', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromLat: r.fromLat,
+            fromLng: r.fromLng,
+            toLat: r.toLat,
+            toLng: r.toLng
+          })
+        })
           .then(res => res.json())
           .then(data => {
-            if (data.code === 'Ok' && data.routes?.[0]) {
-              const route = data.routes[0];
-              const coords = route.geometry.coordinates.map((c: number[]) => [c[1], c[0]]);
-              const distance = (route.distance / 1000).toFixed(1);
-              const duration = Math.round(route.duration / 60);
-              
-              L.polyline(coords, {
-                color: colors[i % colors.length],
-                weight: 4,
-                opacity: 0.8
-              }).addTo(map).bindPopup(
-                `<strong>${r.from} → ${r.to}</strong><br/>` +
-                `Продукт: ${r.product}<br/>` +
-                `Объём: ${r.volume} м³<br/>` +
-                `Расстояние: ${distance} км<br/>` +
-                `Время: ~${duration} мин<br/>` +
-                `<small>${r.reason || ''}</small>`
-              );
-            } else {
-              throw new Error('OSRM error');
-            }
+            const isRealRoute = !data.fallback;
+            
+            L.polyline(data.coordinates, {
+              color: colors[i % colors.length],
+              weight: isRealRoute ? 4 : 3,
+              opacity: isRealRoute ? 0.8 : 0.6,
+              dashArray: isRealRoute ? undefined : '10, 10'
+            }).addTo(map).bindPopup(
+              `<strong>${r.from} → ${r.to}</strong><br/>` +
+              `Продукт: ${r.product}<br/>` +
+              `Объём: ${r.volume} м³<br/>` +
+              `Расстояние: ${data.distance} км<br/>` +
+              `Время: ~${data.duration} мин<br/>` +
+              `<small>${data.fallback ? '⚠️ Примерный маршрут' : '✓ Маршрут по дорогам'}</small><br/>` +
+              `<small>${r.reason || ''}</small>`
+            );
           })
           .catch(() => {
             L.polyline(
