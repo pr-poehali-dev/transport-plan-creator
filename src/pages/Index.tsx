@@ -9,6 +9,7 @@ import RoutesPanel from '@/components/RoutesPanel';
 import ProductsPanel from '@/components/ProductsPanel';
 import ReportsPanel from '@/components/ReportsPanel';
 import RouteOptimization from '@/components/RouteOptimization';
+import Footer from '@/components/Footer';
 
 export default function Index() {
   const [activeTab, setActiveTab] = useState('map');
@@ -60,47 +61,51 @@ export default function Index() {
         </nav>
       </header>
 
-      <main className="flex-1 overflow-hidden">
-        {activeTab === 'map' && (
-          <div className="h-full">
-            <MapView />
-          </div>
-        )}
-        {activeTab === 'warehouses' && (
-          <div className="h-full overflow-auto p-6">
-            <WarehousePanel />
-          </div>
-        )}
-        {activeTab === 'enterprises' && (
-          <div className="h-full overflow-auto p-6">
-            <EnterprisePanel />
-          </div>
-        )}
-        {activeTab === 'vehicles' && (
-          <div className="h-full overflow-auto p-6">
-            <VehiclePanel />
-          </div>
-        )}
-        {activeTab === 'routes' && (
-          <div className="h-full overflow-auto p-6">
-            <RoutesPanel />
-          </div>
-        )}
-        {activeTab === 'optimization' && (
-          <div className="h-full overflow-auto p-6">
-            <RouteOptimization />
-          </div>
-        )}
-        {activeTab === 'products' && (
-          <div className="h-full overflow-auto p-6">
-            <ProductsPanel />
-          </div>
-        )}
-        {activeTab === 'reports' && (
-          <div className="h-full overflow-auto p-6">
-            <ReportsPanel />
-          </div>
-        )}
+      <main className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-auto">
+          {activeTab === 'map' && (
+            <div className="h-full">
+              <MapView />
+            </div>
+          )}
+          {activeTab === 'warehouses' && (
+            <div className="p-6">
+              <WarehousePanel />
+            </div>
+          )}
+          {activeTab === 'enterprises' && (
+            <div className="p-6">
+              <EnterprisePanel />
+            </div>
+          )}
+          {activeTab === 'vehicles' && (
+            <div className="p-6">
+              <VehiclePanel />
+            </div>
+          )}
+          {activeTab === 'routes' && (
+            <div className="p-6">
+              <RoutesPanel />
+            </div>
+          )}
+          {activeTab === 'optimization' && (
+            <div className="p-6">
+              <RouteOptimization />
+            </div>
+          )}
+          {activeTab === 'products' && (
+            <div className="p-6">
+              <ProductsPanel />
+            </div>
+          )}
+          {activeTab === 'reports' && (
+            <div className="p-6">
+              <ReportsPanel />
+            </div>
+          )}
+        </div>
+        
+        <Footer />
       </main>
     </div>
   );
