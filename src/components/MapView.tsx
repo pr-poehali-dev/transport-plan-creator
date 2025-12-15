@@ -3,36 +3,45 @@ import { useEffect, useRef, useState } from 'react';
 export default function MapView() {
   const mapRef = useRef<HTMLDivElement>(null);
   const [locations, setLocations] = useState<any[]>([]);
+  const [routes, setRoutes] = useState<any[]>([]);
 
   useEffect(() => {
-    const warehouses = JSON.parse(localStorage.getItem('warehouses') || '[]');
-    const enterprises = JSON.parse(localStorage.getItem('enterprises') || '[]');
+    const loadData = () => {
+      const warehouses = JSON.parse(localStorage.getItem('warehouses') || '[]');
+      const enterprises = JSON.parse(localStorage.getItem('enterprises') || '[]');
+      const optimizedRoutes = JSON.parse(localStorage.getItem('optimizedRoutes') || '[]');
 
-    const allLocations = [
-      ...warehouses.map((w: any) => ({
-        id: `warehouse-${w.id}`,
-        name: w.name,
-        type: 'warehouse',
-        location: w.location,
-        lat: w.lat,
-        lng: w.lng,
-        products: w.products,
-        totalVolume: w.totalVolume,
-      })),
-      ...enterprises.map((e: any) => ({
-        id: `enterprise-${e.id}`,
-        name: e.name,
-        type: 'enterprise',
-        location: e.location,
-        lat: e.lat,
-        lng: e.lng,
-        consumed: e.consumed || [{ product: e.consumedProduct, volume: e.consumedVolume }],
-        produced: e.produced || [{ product: e.producedProduct, volume: e.producedVolume }],
-        storage: e.storage || [],
-      })),
-    ];
+      const allLocations = [
+        ...warehouses.map((w: any) => ({
+          id: `warehouse-${w.id}`,
+          name: w.name,
+          type: 'warehouse',
+          location: w.location,
+          lat: w.lat,
+          lng: w.lng,
+          products: w.products,
+          totalVolume: w.totalVolume,
+        })),
+        ...enterprises.map((e: any) => ({
+          id: `enterprise-${e.id}`,
+          name: e.name,
+          type: 'enterprise',
+          location: e.location,
+          lat: e.lat,
+          lng: e.lng,
+          consumed: e.consumed || [{ product: e.consumedProduct, volume: e.consumedVolume }],
+          produced: e.produced || [{ product: e.producedProduct, volume: e.producedVolume }],
+          storage: e.storage || [],
+        })),
+      ];
 
-    setLocations(allLocations);
+      setLocations(allLocations);
+      setRoutes(optimizedRoutes);
+    };
+
+    loadData();
+    window.addEventListener('storage', loadData);
+    return () => window.removeEventListener('storage', loadData);
   }, []);
 
   useEffect(() => {
@@ -131,6 +140,35 @@ export default function MapView() {
               });
             }
           });
+
+          routes.forEach((route) => {
+            if (route.fromLat && route.fromLng && route.toLat && route.toLng) {
+              const polyline = new (window as any).ymaps.Polyline(
+                [
+                  [route.fromLat, route.fromLng],
+                  [route.toLat, route.toLng]
+                ],
+                {
+                  balloonContent: `
+                    <div style="padding: 8px;">
+                      <strong>${route.product}</strong><br/>
+                      <span style="font-size: 12px;">От: ${route.from}</span><br/>
+                      <span style="font-size: 12px;">До: ${route.to}</span><br/>
+                      <span style="font-size: 12px;">Объём: ${route.volume} м³</span><br/>
+                      <span style="font-size: 12px;">Расстояние: ${route.distance} км</span>
+                      ${route.vehicle ? `<br/><br/><strong>Автомобиль:</strong><br/><span style="font-size: 11px;">${route.vehicle.brand} (${route.vehicle.licensePlate})</span>` : ''}
+                    </div>
+                  `
+                },
+                {
+                  strokeColor: '#3B82F6',
+                  strokeWidth: 3,
+                  strokeOpacity: 0.7,
+                }
+              );
+              map.geoObjects.add(polyline);
+            }
+          });
         });
       }
     };
@@ -147,7 +185,7 @@ export default function MapView() {
         document.head.removeChild(script);
       }
     };
-  }, [locations]);
+  }, [locations, routes]);
 
   return <div ref={mapRef} className="w-full h-full bg-muted"></div>;
 }

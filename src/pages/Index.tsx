@@ -88,7 +88,7 @@ export default function Index() {
         )}
         {activeTab === 'optimization' && (
           <div className="h-full overflow-auto p-6">
-            <RouteOptimization />
+            <RouteOptimization onShowOnMap={() => setActiveTab('map')} />
           </div>
         )}
         {activeTab === 'products' && (

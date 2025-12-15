@@ -36,6 +36,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     month = body_data.get('month', '')
     warehouses = body_data.get('warehouses', [])
     enterprises = body_data.get('enterprises', [])
+    vehicles = body_data.get('vehicles', [])
     
     print(f"=== DEBUG: Received request for month: {month}")
     print(f"=== DEBUG: Warehouses count: {len(warehouses)}")
@@ -51,7 +52,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
-    routes = optimize_routes(warehouses, enterprises, month)
+    routes = optimize_routes(warehouses, enterprises, vehicles, month)
     
     warehouse_stocks_summary = []
     for w in warehouses:
@@ -110,17 +111,44 @@ def normalize_product_name(name: str) -> str:
     return name.strip().lower()
 
 
-def optimize_routes(warehouses: List[Dict], enterprises: List[Dict], month: str) -> List[Dict]:
+def find_suitable_vehicle(product_normalized: str, volume: float, enterprise_name: str, vehicles: List[Dict]) -> Dict:
+    """Находит подходящий автомобиль для перевозки груза"""
+    for vehicle in vehicles:
+        if vehicle.get('status') != 'active':
+            continue
+        
+        vehicle_products = [normalize_product_name(p) for p in vehicle.get('productTypes', [])]
+        
+        if product_normalized in vehicle_products:
+            if vehicle.get('volume', 0) >= volume:
+                if vehicle.get('enterprise', '') == enterprise_name:
+                    return vehicle
+    
+    for vehicle in vehicles:
+        if vehicle.get('status') != 'active':
+            continue
+        
+        vehicle_products = [normalize_product_name(p) for p in vehicle.get('productTypes', [])]
+        
+        if product_normalized in vehicle_products:
+            if vehicle.get('volume', 0) >= volume:
+                return vehicle
+    
+    return None
+
+
+def optimize_routes(warehouses: List[Dict], enterprises: List[Dict], vehicles: List[Dict], month: str) -> List[Dict]:
     """
     Алгоритм оптимизации маршрутов:
     1. Для каждого предприятия находим нужную продукцию
     2. Для каждого товара ищем ближайший склад с достаточным запасом
-    3. Создаём маршрут от склада до предприятия
-    4. Учитываем остатки и не превышаем их
+    3. Назначаем подходящий автомобиль
+    4. Создаём маршрут от склада до предприятия
+    5. Учитываем остатки и не превышаем их
     """
     routes = []
     
-    print(f"=== OPTIMIZE: Starting optimization for {len(warehouses)} warehouses and {len(enterprises)} enterprises")
+    print(f"=== OPTIMIZE: Starting optimization for {len(warehouses)} warehouses, {len(enterprises)} enterprises, {len(vehicles)} vehicles")
     
     warehouse_stocks = {}
     for w in warehouses:
@@ -179,17 +207,33 @@ def optimize_routes(warehouses: List[Dict], enterprises: List[Dict], month: str)
                         original_product_name = p
                         break
                 
-                routes.append({
+                assigned_vehicle = find_suitable_vehicle(product_normalized, transport_volume, enterprise['name'], vehicles)
+                
+                route = {
                     'product': original_product_name or product_normalized,
                     'from': best_warehouse['name'],
+                    'fromLat': best_warehouse.get('lat'),
+                    'fromLng': best_warehouse.get('lng'),
                     'to': enterprise['name'],
+                    'toLat': enterprise.get('lat'),
+                    'toLng': enterprise.get('lng'),
                     'volume': transport_volume,
                     'distance': best_distance,
                     'reason': f'Ближайший склад с запасом {original_product_name or product_normalized}. Остаток на складе: {available_volume} м³'
-                })
+                }
+                
+                if assigned_vehicle:
+                    route['vehicle'] = {
+                        'brand': assigned_vehicle.get('brand'),
+                        'licensePlate': assigned_vehicle.get('licensePlate'),
+                        'volume': assigned_vehicle.get('volume'),
+                        'enterprise': assigned_vehicle.get('enterprise')
+                    }
+                
+                routes.append(route)
                 
                 warehouse_stocks[best_warehouse['id']][product_normalized] -= transport_volume
-                print(f"=== OPTIMIZE: Created route: {best_warehouse['name']} -> {enterprise['name']}, {original_product_name}, {transport_volume} м³")
+                print(f"=== OPTIMIZE: Created route: {best_warehouse['name']} -> {enterprise['name']}, {original_product_name}, {transport_volume} м³, Vehicle: {assigned_vehicle.get('brand') if assigned_vehicle else 'None'}")
             else:
                 print(f"=== OPTIMIZE: No warehouse found with '{product_normalized}' for {enterprise.get('name')}")
     

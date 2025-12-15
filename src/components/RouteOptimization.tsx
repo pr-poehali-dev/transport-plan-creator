@@ -13,7 +13,11 @@ import {
 import { toast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 
-export default function RouteOptimization() {
+interface RouteOptimizationProps {
+  onShowOnMap?: () => void;
+}
+
+export default function RouteOptimization({ onShowOnMap }: RouteOptimizationProps) {
   const [selectedMonth, setSelectedMonth] = useState('Январь 2025');
   const [isCalculating, setIsCalculating] = useState(false);
   const [routes, setRoutes] = useState<any[]>([]);
@@ -29,6 +33,7 @@ export default function RouteOptimization() {
     
     const warehouses = JSON.parse(localStorage.getItem('warehouses') || '[]');
     const enterprises = JSON.parse(localStorage.getItem('enterprises') || '[]');
+    const vehicles = JSON.parse(localStorage.getItem('vehicles') || '[]');
 
     if (warehouses.length === 0 || enterprises.length === 0) {
       toast({
@@ -105,6 +110,7 @@ export default function RouteOptimization() {
           month: selectedMonth,
           warehouses: warehouseStocks,
           enterprises: enterpriseNeeds,
+          vehicles: vehicles,
         }),
       });
 
@@ -114,6 +120,11 @@ export default function RouteOptimization() {
 
       const data = await response.json();
       setRoutes(data.routes || []);
+      
+      if (data.routes && data.routes.length > 0) {
+        localStorage.setItem('optimizedRoutes', JSON.stringify(data.routes));
+        window.dispatchEvent(new Event('storage'));
+      }
 
       if (data.routes && data.routes.length > 0) {
         toast({
@@ -198,7 +209,15 @@ export default function RouteOptimization() {
 
       {routes.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Рекомендуемые маршруты</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Рекомендуемые маршруты</h3>
+            {onShowOnMap && (
+              <Button variant="outline" size="sm" onClick={onShowOnMap}>
+                <Icon name="Map" size={16} className="mr-2" />
+                Показать на карте
+              </Button>
+            )}
+          </div>
           <div className="space-y-4">
             {routes.map((route, index) => (
               <Card key={index} className="p-4 border-l-4 border-l-primary">
@@ -226,6 +245,12 @@ export default function RouteOptimization() {
                     <div className="font-medium">{route.volume} м³</div>
                   </div>
                 </div>
+                {route.vehicle && (
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                    <Icon name="Truck" size={12} className="inline mr-1 text-blue-600" />
+                    <span className="font-semibold">Автомобиль:</span> {route.vehicle.brand} ({route.vehicle.licensePlate}) - {route.vehicle.volume} м³
+                  </div>
+                )}
                 {route.reason && (
                   <div className="mt-2 p-2 bg-muted rounded text-xs">
                     <Icon name="Info" size={12} className="inline mr-1" />
