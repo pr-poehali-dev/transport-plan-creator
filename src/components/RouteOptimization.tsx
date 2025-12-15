@@ -199,24 +199,40 @@ export default function RouteOptimization({ onShowOnMap }: RouteOptimizationProp
           </div>
         </div>
 
-        <Button
-          onClick={handleOptimize}
-          disabled={isCalculating}
-          size="lg"
-          className="w-full md:w-auto"
-        >
-          {isCalculating ? (
-            <>
-              <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-              Расчёт маршрутов...
-            </>
-          ) : (
-            <>
-              <Icon name="Sparkles" size={16} className="mr-2" />
-              Рассчитать оптимальные маршруты
-            </>
-          )}
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            onClick={handleOptimize}
+            disabled={isCalculating}
+            size="lg"
+            className="flex-1 md:flex-none md:w-auto"
+          >
+            {isCalculating ? (
+              <>
+                <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
+                Расчёт маршрутов...
+              </>
+            ) : (
+              <>
+                <Icon name="Sparkles" size={16} className="mr-2" />
+                Рассчитать оптимальные маршруты
+              </>
+            )}
+          </Button>
+          
+          <Button
+            onClick={() => {
+              localStorage.removeItem('warehouses');
+              localStorage.removeItem('enterprises');
+              localStorage.removeItem('vehicles');
+              window.location.reload();
+            }}
+            variant="outline"
+            size="lg"
+          >
+            <Icon name="RotateCcw" size={16} className="mr-2" />
+            Сбросить данные
+          </Button>
+        </div>
       </Card>
 
       {routes.length > 0 && (
