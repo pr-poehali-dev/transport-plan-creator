@@ -18,52 +18,7 @@ import VehicleStatsCards from '@/components/vehicle/VehicleStatsCards';
 import VehicleTable, { Vehicle } from '@/components/vehicle/VehicleTable';
 import VehicleFormDialog from '@/components/vehicle/VehicleFormDialog';
 
-const initialVehicles: Vehicle[] = [
-  {
-    id: 1,
-    brand: 'КАМАЗ 65115',
-    licensePlate: 'А1234КБ22',
-    trailerType: 'Цистерна',
-    volume: 20,
-    productTypes: ['Бензин АИ-95', 'Бензин АИ-92'],
-    enterprise: 'Завод "ПромСнаб"',
-    schedule: '5/2 (8:00-20:00)',
-    status: 'active',
-  },
-  {
-    id: 2,
-    brand: 'MAN TGX 18.500',
-    licensePlate: 'А5678МБ77',
-    trailerType: 'Цистерна',
-    volume: 25,
-    productTypes: ['Дизель'],
-    enterprise: 'Завод "Индустрия"',
-    schedule: '24/7',
-    status: 'active',
-  },
-  {
-    id: 3,
-    brand: 'Volvo FH16',
-    licensePlate: 'А9999АА22',
-    trailerType: 'Цистерна',
-    volume: 30,
-    productTypes: ['Бензин АИ-95', 'Дизель'],
-    enterprise: 'Завод "НефтеХим"',
-    schedule: '6/1 (7:00-19:00)',
-    status: 'active',
-  },
-  {
-    id: 4,
-    brand: 'КАМАЗ 43118',
-    licensePlate: 'А4321ТА22',
-    trailerType: 'Цистерна',
-    volume: 18,
-    productTypes: ['Бензин АИ-92'],
-    enterprise: 'Завод "ПромСнаб"',
-    schedule: '5/2 (9:00-18:00)',
-    status: 'maintenance',
-  },
-];
+const initialVehicles: Vehicle[] = [];
 
 export default function VehiclePanel() {
   const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
