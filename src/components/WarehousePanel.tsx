@@ -5,10 +5,14 @@ import WarehouseTable from './warehouse/WarehouseTable';
 import WarehouseFormDialog from './warehouse/WarehouseFormDialog';
 import WarehouseDeleteDialog from './warehouse/WarehouseDeleteDialog';
 
-interface Product {
+interface MonthlyStock {
   month: string;
-  product: string;
   volume: number;
+}
+
+interface Product {
+  product: string;
+  monthlyData: MonthlyStock[];
 }
 
 interface Warehouse {
@@ -30,8 +34,22 @@ const initialWarehouses: Warehouse[] = [
     lat: 53.356,
     lng: 83.769,
     products: [
-      { month: 'Декабрь 2025', product: 'Бензин АИ-95', volume: 450 },
-      { month: 'Декабрь 2025', product: 'Дизель', volume: 320 },
+      { 
+        product: 'Бензин АИ-95',
+        monthlyData: [
+          { month: 'Январь 2025', volume: 520 },
+          { month: 'Февраль 2025', volume: 480 },
+          { month: 'Март 2025', volume: 450 },
+        ]
+      },
+      { 
+        product: 'Дизель',
+        monthlyData: [
+          { month: 'Январь 2025', volume: 350 },
+          { month: 'Февраль 2025', volume: 320 },
+          { month: 'Март 2025', volume: 300 },
+        ]
+      },
     ],
     totalVolume: 770,
     status: 'active',
@@ -43,8 +61,14 @@ const initialWarehouses: Warehouse[] = [
     lat: 53.389,
     lng: 83.736,
     products: [
-      { month: 'Декабрь 2025', product: 'Бензин АИ-92', volume: 280 },
-      { month: 'Декабрь 2025', product: 'Бензин АИ-95', volume: 190 },
+      { 
+        product: 'Бензин АИ-92',
+        monthlyData: [
+          { month: 'Январь 2025', volume: 300 },
+          { month: 'Февраль 2025', volume: 280 },
+          { month: 'Март 2025', volume: 260 },
+        ]
+      },
     ],
     totalVolume: 470,
     status: 'active',
@@ -67,8 +91,8 @@ export default function WarehousePanel() {
     lat: '',
     lng: '',
   });
-  const [products, setProducts] = useState<{ product: string; volume: string }[]>([
-    { product: '', volume: '' },
+  const [products, setProducts] = useState<Product[]>([
+    { product: '', monthlyData: [] },
   ]);
 
   useEffect(() => {
@@ -107,15 +131,20 @@ export default function WarehousePanel() {
       return;
     }
 
-    const validProducts = products.filter((p) => p.product && p.volume);
+    const validProducts = products.filter((p) => p.product && p.monthlyData.length > 0);
     if (validProducts.length === 0) {
       toast({
         title: 'Ошибка',
-        description: 'Добавьте хотя бы одну продукцию',
+        description: 'Добавьте хотя бы одну продукцию с данными по месяцам',
         variant: 'destructive',
       });
       return;
     }
+
+    const latestVolume = validProducts.reduce((sum, p) => {
+      const lastMonth = p.monthlyData[p.monthlyData.length - 1];
+      return sum + (lastMonth?.volume || 0);
+    }, 0);
 
     const newWarehouse: Warehouse = {
       id: Math.max(0, ...warehouses.map((w) => w.id)) + 1,
@@ -123,12 +152,8 @@ export default function WarehousePanel() {
       location: formData.location,
       lat: formData.lat ? parseFloat(formData.lat) : undefined,
       lng: formData.lng ? parseFloat(formData.lng) : undefined,
-      products: validProducts.map((p) => ({
-        month: 'Декабрь 2025',
-        product: p.product,
-        volume: parseInt(p.volume),
-      })),
-      totalVolume: validProducts.reduce((sum, p) => sum + parseInt(p.volume), 0),
+      products: validProducts,
+      totalVolume: latestVolume,
       status: 'active',
     };
 
@@ -153,15 +178,20 @@ export default function WarehousePanel() {
       return;
     }
 
-    const validProducts = products.filter((p) => p.product && p.volume);
+    const validProducts = products.filter((p) => p.product && p.monthlyData.length > 0);
     if (validProducts.length === 0) {
       toast({
         title: 'Ошибка',
-        description: 'Добавьте хотя бы одну продукцию',
+        description: 'Добавьте хотя бы одну продукцию с данными по месяцам',
         variant: 'destructive',
       });
       return;
     }
+
+    const latestVolume = validProducts.reduce((sum, p) => {
+      const lastMonth = p.monthlyData[p.monthlyData.length - 1];
+      return sum + (lastMonth?.volume || 0);
+    }, 0);
 
     const updatedWarehouse: Warehouse = {
       ...editWarehouse,
@@ -169,12 +199,8 @@ export default function WarehousePanel() {
       location: formData.location,
       lat: formData.lat ? parseFloat(formData.lat) : undefined,
       lng: formData.lng ? parseFloat(formData.lng) : undefined,
-      products: validProducts.map((p) => ({
-        month: 'Декабрь 2025',
-        product: p.product,
-        volume: parseInt(p.volume),
-      })),
-      totalVolume: validProducts.reduce((sum, p) => sum + parseInt(p.volume), 0),
+      products: validProducts,
+      totalVolume: latestVolume,
     };
 
     setWarehouses(warehouses.map((w) => (w.id === editWarehouse.id ? updatedWarehouse : w)));
@@ -188,7 +214,7 @@ export default function WarehousePanel() {
 
   const resetForm = () => {
     setFormData({ name: '', location: '', lat: '', lng: '' });
-    setProducts([{ product: '', volume: '' }]);
+    setProducts([{ product: '', monthlyData: [] }]);
   };
 
   const openEditDialog = (warehouse: Warehouse) => {
@@ -199,12 +225,7 @@ export default function WarehousePanel() {
       lat: warehouse.lat?.toString() || '',
       lng: warehouse.lng?.toString() || '',
     });
-    setProducts(
-      warehouse.products.map((p) => ({
-        product: p.product,
-        volume: p.volume.toString(),
-      }))
-    );
+    setProducts(warehouse.products || [{ product: '', monthlyData: [] }]);
   };
 
   const openAddDialog = () => {
@@ -212,19 +233,7 @@ export default function WarehousePanel() {
     setIsAddDialogOpen(true);
   };
 
-  const addProductField = () => {
-    setProducts([...products, { product: '', volume: '' }]);
-  };
 
-  const removeProductField = (index: number) => {
-    setProducts(products.filter((_, i) => i !== index));
-  };
-
-  const updateProduct = (index: number, field: 'product' | 'volume', value: string) => {
-    const updated = [...products];
-    updated[index][field] = value;
-    setProducts(updated);
-  };
 
   const handleCloseDialog = () => {
     setIsAddDialogOpen(false);
@@ -259,9 +268,7 @@ export default function WarehousePanel() {
         onClose={handleCloseDialog}
         onSubmit={handleSubmitDialog}
         onFormDataChange={setFormData}
-        onProductUpdate={updateProduct}
-        onAddProductField={addProductField}
-        onRemoveProductField={removeProductField}
+        onProductsChange={setProducts}
       />
 
       <WarehouseDeleteDialog

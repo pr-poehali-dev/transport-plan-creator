@@ -1,13 +1,6 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -17,11 +10,16 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import MonthlyStockManager from './MonthlyStockManager';
+
+interface MonthlyStock {
+  month: string;
+  volume: number;
+}
 
 interface Product {
-  month: string;
   product: string;
-  volume: number;
+  monthlyData: MonthlyStock[];
 }
 
 interface Warehouse {
@@ -44,14 +42,12 @@ interface WarehouseFormDialogProps {
     lat: string;
     lng: string;
   };
-  products: { product: string; volume: string }[];
+  products: Product[];
   availableProducts: any[];
   onClose: () => void;
   onSubmit: () => void;
   onFormDataChange: (data: { name: string; location: string; lat: string; lng: string }) => void;
-  onProductUpdate: (index: number, field: 'product' | 'volume', value: string) => void;
-  onAddProductField: () => void;
-  onRemoveProductField: (index: number) => void;
+  onProductsChange: (products: Product[]) => void;
 }
 
 export default function WarehouseFormDialog({
@@ -63,16 +59,35 @@ export default function WarehouseFormDialog({
   onClose,
   onSubmit,
   onFormDataChange,
-  onProductUpdate,
-  onAddProductField,
-  onRemoveProductField,
+  onProductsChange,
 }: WarehouseFormDialogProps) {
+  const addProduct = () => {
+    onProductsChange([
+      ...products,
+      { product: '', monthlyData: [] }
+    ]);
+  };
+
+  const removeProduct = (index: number) => {
+    onProductsChange(products.filter((_, i) => i !== index));
+  };
+
+  const updateProduct = (index: number, field: 'product' | 'monthlyData', value: any) => {
+    const updated = [...products];
+    if (field === 'product') {
+      updated[index].product = value;
+    } else {
+      updated[index].monthlyData = value;
+    }
+    onProductsChange(updated);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editWarehouse ? 'Редактировать склад' : 'Добавить склад'}</DialogTitle>
-          <DialogDescription>Заполните информацию о складе</DialogDescription>
+          <DialogDescription>Заполните информацию о складе и остатках по месяцам</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -117,51 +132,35 @@ export default function WarehouseFormDialog({
               />
             </div>
           </div>
+
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label>Продукция и остатки</Label>
-              <Button type="button" variant="outline" size="sm" onClick={onAddProductField}>
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-base font-semibold">Продукция на складе</Label>
+              <Button type="button" variant="outline" size="sm" onClick={addProduct}>
                 <Icon name="Plus" size={14} className="mr-1" />
-                Добавить
+                Добавить продукцию
               </Button>
             </div>
-            {products.map((product, index) => (
-              <div key={index} className="flex gap-2 mb-2">
-                <Select
-                  value={product.product}
-                  onValueChange={(value) => onProductUpdate(index, 'product', value)}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Выберите продукцию" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableProducts.map((p) => (
-                      <SelectItem key={p.id} value={p.name}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="number"
-                  placeholder="Объем (м³)"
-                  value={product.volume}
-                  onChange={(e) => onProductUpdate(index, 'volume', e.target.value)}
-                  className="w-32"
-                />
-                {products.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onRemoveProductField(index)}
-                    className="text-destructive"
-                  >
-                    <Icon name="X" size={16} />
-                  </Button>
-                )}
+            
+            {products.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-4 text-center border-2 border-dashed rounded-lg">
+                Добавьте продукцию для хранения на складе
               </div>
-            ))}
+            ) : (
+              <div className="space-y-3">
+                {products.map((product, index) => (
+                  <MonthlyStockManager
+                    key={index}
+                    productName={product.product}
+                    monthlyData={product.monthlyData}
+                    onDataChange={(data) => updateProduct(index, 'monthlyData', data)}
+                    onRemove={() => removeProduct(index)}
+                    availableProducts={availableProducts}
+                    onProductChange={(newProduct) => updateProduct(index, 'product', newProduct)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>

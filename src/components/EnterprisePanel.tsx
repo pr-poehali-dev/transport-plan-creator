@@ -32,9 +32,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 
+interface MonthlyData {
+  month: string;
+  volume: number;
+}
+
 interface ProductItem {
   product: string;
-  volume: number;
+  monthlyData: MonthlyData[];
 }
 
 interface StorageItem {
@@ -63,8 +68,22 @@ const initialEnterprises: Enterprise[] = [
     location: 'Барнаул, Павловский тракт 45',
     lat: 53.348,
     lng: 83.776,
-    consumed: [{ product: 'Нефть', volume: 280 }],
-    produced: [{ product: 'Бензин АИ-95', volume: 180 }],
+    consumed: [{ 
+      product: 'Нефть', 
+      monthlyData: [
+        { month: 'Январь 2025', volume: 300 },
+        { month: 'Февраль 2025', volume: 280 },
+        { month: 'Март 2025', volume: 260 },
+      ]
+    }],
+    produced: [{ 
+      product: 'Бензин АИ-95', 
+      monthlyData: [
+        { month: 'Январь 2025', volume: 200 },
+        { month: 'Февраль 2025', volume: 180 },
+        { month: 'Март 2025', volume: 170 },
+      ]
+    }],
     storage: [
       { product: 'Нефть', volume: 150, type: 'raw' },
       { product: 'Бензин АИ-95', volume: 80, type: 'finished' },

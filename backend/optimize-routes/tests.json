@@ -1,0 +1,52 @@
+{
+  "tests": [
+    {
+      "name": "Calculate routes with valid data",
+      "method": "POST",
+      "body": {
+        "month": "Январь 2025",
+        "warehouses": [
+          {
+            "id": 1,
+            "name": "Склад А",
+            "lat": 53.356,
+            "lng": 83.769,
+            "stocks": {
+              "Бензин АИ-95": 500,
+              "Дизель": 300
+            }
+          }
+        ],
+        "enterprises": [
+          {
+            "id": 1,
+            "name": "Завод Б",
+            "lat": 53.348,
+            "lng": 83.776,
+            "needs": {
+              "Бензин АИ-95": 200
+            }
+          }
+        ]
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "routes": "array",
+        "total_routes": "number"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Handle missing data",
+      "method": "POST",
+      "body": {
+        "month": "Январь 2025"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

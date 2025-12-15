@@ -3,10 +3,14 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-interface Product {
+interface MonthlyStock {
   month: string;
-  product: string;
   volume: number;
+}
+
+interface Product {
+  product: string;
+  monthlyData: MonthlyStock[];
 }
 
 interface Warehouse {
@@ -61,11 +65,19 @@ export default function WarehouseTable({ warehouses, onEdit, onDelete, onAdd }: 
                 </TableCell>
                 <TableCell>
                   <div className="space-y-1">
-                    {warehouse.products.map((p, idx) => (
-                      <div key={idx} className="text-xs">
-                        <span className="font-medium">{p.product}:</span> {p.volume} м³
-                      </div>
-                    ))}
+                    {warehouse.products.map((p, idx) => {
+                      const latestMonth = p.monthlyData[p.monthlyData.length - 1];
+                      return (
+                        <div key={idx} className="text-xs">
+                          <span className="font-medium">{p.product}</span>
+                          {latestMonth && (
+                            <span className="text-muted-foreground ml-1">
+                              ({latestMonth.month}: {latestMonth.volume} м³)
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </TableCell>
                 <TableCell>

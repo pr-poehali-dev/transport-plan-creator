@@ -8,6 +8,7 @@ import VehiclePanel from '@/components/VehiclePanel';
 import RoutesPanel from '@/components/RoutesPanel';
 import ProductsPanel from '@/components/ProductsPanel';
 import ReportsPanel from '@/components/ReportsPanel';
+import RouteOptimization from '@/components/RouteOptimization';
 
 export default function Index() {
   const [activeTab, setActiveTab] = useState('map');
@@ -18,6 +19,7 @@ export default function Index() {
     { id: 'enterprises', icon: 'Factory', label: 'Предприятия' },
     { id: 'vehicles', icon: 'Truck', label: 'Автомобили' },
     { id: 'routes', icon: 'Route', label: 'Маршруты' },
+    { id: 'optimization', icon: 'Sparkles', label: 'Оптимизация ИИ' },
     { id: 'products', icon: 'Package', label: 'Продукция' },
     { id: 'reports', icon: 'BarChart3', label: 'Отчеты' },
   ];
@@ -82,6 +84,11 @@ export default function Index() {
         {activeTab === 'routes' && (
           <div className="h-full overflow-auto p-6">
             <RoutesPanel />
+          </div>
+        )}
+        {activeTab === 'optimization' && (
+          <div className="h-full overflow-auto p-6">
+            <RouteOptimization />
           </div>
         )}
         {activeTab === 'products' && (
