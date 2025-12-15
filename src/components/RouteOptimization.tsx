@@ -43,12 +43,16 @@ export default function RouteOptimization() {
     try {
       const warehouseStocks = warehouses.map((w: any) => {
         const monthlyStocks: any = {};
-        w.products.forEach((p: any) => {
-          const monthData = p.monthlyData.find((m: any) => m.month === selectedMonth);
-          if (monthData) {
-            monthlyStocks[p.product] = monthData.volume;
-          }
-        });
+        if (w.products && Array.isArray(w.products)) {
+          w.products.forEach((p: any) => {
+            if (p.monthlyData && Array.isArray(p.monthlyData)) {
+              const monthData = p.monthlyData.find((m: any) => m.month === selectedMonth);
+              if (monthData) {
+                monthlyStocks[p.product] = monthData.volume;
+              }
+            }
+          });
+        }
         return {
           id: w.id,
           name: w.name,
@@ -61,11 +65,13 @@ export default function RouteOptimization() {
 
       const enterpriseNeeds = enterprises.map((e: any) => {
         const monthlyNeeds: any = {};
-        if (e.consumed) {
+        if (e.consumed && Array.isArray(e.consumed)) {
           e.consumed.forEach((c: any) => {
-            const monthData = c.monthlyData?.find((m: any) => m.month === selectedMonth);
-            if (monthData) {
-              monthlyNeeds[c.product] = monthData.volume;
+            if (c.monthlyData && Array.isArray(c.monthlyData)) {
+              const monthData = c.monthlyData.find((m: any) => m.month === selectedMonth);
+              if (monthData) {
+                monthlyNeeds[c.product] = monthData.volume;
+              }
             }
           });
         }
@@ -78,6 +84,19 @@ export default function RouteOptimization() {
           needs: monthlyNeeds,
         };
       });
+
+      const hasWarehouseData = warehouseStocks.some((w: any) => Object.keys(w.stocks).length > 0);
+      const hasEnterpriseData = enterpriseNeeds.some((e: any) => Object.keys(e.needs).length > 0);
+
+      if (!hasWarehouseData || !hasEnterpriseData) {
+        toast({
+          title: 'Нет данных за выбранный месяц',
+          description: `Добавьте остатки на складах и потребности предприятий за ${selectedMonth}`,
+          variant: 'destructive',
+        });
+        setIsCalculating(false);
+        return;
+      }
 
       const response = await fetch('https://functions.poehali.dev/731429fc-10d1-48ba-8c78-e761ff3f835f', {
         method: 'POST',

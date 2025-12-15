@@ -100,11 +100,39 @@ export default function EnterprisePanel() {
     const parsed = JSON.parse(saved);
     return parsed.map((e: any) => {
       if (!e.consumed && e.consumedProduct) {
-        e.consumed = [{ product: e.consumedProduct, volume: e.consumedVolume || 0 }];
+        e.consumed = [{ 
+          product: e.consumedProduct, 
+          monthlyData: [{ month: 'Январь 2025', volume: e.consumedVolume || 0 }]
+        }];
+      } else if (e.consumed) {
+        e.consumed = e.consumed.map((c: any) => {
+          if (!c.monthlyData && c.volume !== undefined) {
+            return {
+              product: c.product,
+              monthlyData: [{ month: 'Январь 2025', volume: c.volume }]
+            };
+          }
+          return c;
+        });
       }
+      
       if (!e.produced && e.producedProduct) {
-        e.produced = [{ product: e.producedProduct, volume: e.producedVolume || 0 }];
+        e.produced = [{ 
+          product: e.producedProduct,
+          monthlyData: [{ month: 'Январь 2025', volume: e.producedVolume || 0 }]
+        }];
+      } else if (e.produced) {
+        e.produced = e.produced.map((p: any) => {
+          if (!p.monthlyData && p.volume !== undefined) {
+            return {
+              product: p.product,
+              monthlyData: [{ month: 'Январь 2025', volume: p.volume }]
+            };
+          }
+          return p;
+        });
       }
+      
       if (!e.storage) {
         e.storage = [];
       }
