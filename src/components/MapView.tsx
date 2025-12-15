@@ -1,7 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+const warehouseIcon = new L.Icon({
+  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9IiMzQjgyRjYiLz4KPHBhdGggZD0iTTEyIDI4VjE2TDIwIDEyTDI4IDE2VjI4SDI0VjIySDIwVjI4SDEyWiIgZmlsbD0id2hpdGUiLz4KPHJlY3QgeD0iMTQiIHk9IjE4IiB3aWR0aD0iMyIgaGVpZ2h0PSIzIiBmaWxsPSIjM0I4MkY2Ii8+CjxyZWN0IHg9IjIzIiB5PSIxOCIgd2lkdGg9IjMiIGhlaWdodD0iMyIgZmlsbD0iIzNCODJGNiIvPgo8L3N2Zz4=',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40],
+});
+
+const enterpriseIcon = new L.Icon({
+  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9IiMxNkEzNEEiLz4KPHBhdGggZD0iTTEyIDI2VjE4SDEzVjE0SDEyVjEySDI4VjE0SDI3VjE4SDI4VjI2SDI3VjI4SDEzVjI2SDEyWiIgZmlsbD0id2hpdGUiLz4KPHJlY3QgeD0iMTUiIHk9IjE0IiB3aWR0aD0iMiIgaGVpZ2h0PSI0IiBmaWxsPSIjMTZBMzRBIi8+CjxyZWN0IHg9IjE5IiB5PSIxNCIgd2lkdGg9IjIiIGhlaWdodD0iNCIgZmlsbD0iIzE2QTM0QSIvPgo8cmVjdCB4PSIyMyIgeT0iMTQiIHdpZHRoPSIyIiBoZWlnaHQ9IjQiIGZpbGw9IiMxNkEzNEEiLz4KPHJlY3QgeD0iMTUiIHk9IjIwIiB3aWR0aD0iMiIgaGVpZ2h0PSI0IiBmaWxsPSIjMTZBMzRBIi8+CjxyZWN0IHg9IjE5IiB5PSIyMCIgd2lkdGg9IjIiIGhlaWdodD0iNCIgZmlsbD0iIzE2QTM0QSIvPgo8cmVjdCB4PSIyMyIgeT0iMjAiIHdpZHRoPSIyIiBoZWlnaHQ9IjQiIGZpbGw9IiMxNkEzNEEiLz4KPHBhdGggZD0iTTE0IDEyTDE3IDEwTDIzIDEwTDI2IDEyIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4=',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40],
+});
 
 export default function MapView() {
-  const mapRef = useRef<HTMLDivElement>(null);
   const [locations, setLocations] = useState<any[]>([]);
   const [routes, setRoutes] = useState<any[]>([]);
 
@@ -10,9 +26,6 @@ export default function MapView() {
       const warehouses = JSON.parse(localStorage.getItem('warehouses') || '[]');
       const enterprises = JSON.parse(localStorage.getItem('enterprises') || '[]');
       const optimizedRoutes = JSON.parse(localStorage.getItem('optimizedRoutes') || '[]');
-
-      console.log('MapView: загружено маршрутов из localStorage:', optimizedRoutes.length);
-      console.log('MapView: маршруты:', optimizedRoutes);
 
       const allLocations = [
         ...warehouses.map((w: any) => ({
@@ -32,13 +45,13 @@ export default function MapView() {
           location: e.location,
           lat: e.lat,
           lng: e.lng,
-          consumed: e.consumed || [{ product: e.consumedProduct, volume: e.consumedVolume }],
-          produced: e.produced || [{ product: e.producedProduct, volume: e.producedVolume }],
+          consumed: e.consumed || [],
+          produced: e.produced || [],
           storage: e.storage || [],
         })),
       ];
 
-      setLocations(allLocations);
+      setLocations(allLocations.filter(loc => loc.lat && loc.lng));
       setRoutes(optimizedRoutes);
     };
 
@@ -47,170 +60,124 @@ export default function MapView() {
     return () => window.removeEventListener('storage', loadData);
   }, []);
 
-  useEffect(() => {
-    if (!mapRef.current || locations.length === 0) return;
+  const routeColors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
 
-    const initMap = () => {
-      if (typeof window !== 'undefined' && (window as any).ymaps) {
-        (window as any).ymaps.ready(() => {
-          if (!mapRef.current) return;
-          
-          const map = new (window as any).ymaps.Map(mapRef.current, {
-            center: [53.35, 83.77],
-            zoom: 10,
-            controls: ['zoomControl', 'fullscreenControl'],
-          });
+  return (
+    <div className="h-full w-full">
+      <MapContainer
+        center={[53.35, 83.77]}
+        zoom={10}
+        style={{ height: '100%', width: '100%' }}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
 
-          locations.forEach((location) => {
-            const createMarker = (coords: number[]) => {
-              let balloonContent = `<div style="padding: 8px; max-width: 250px;">
-                <strong>${location.name}</strong><br/>
-                <span style="color: #666; font-size: 12px;">${location.location}</span><br/><br/>`;
+        {locations.map((location) => (
+          <Marker
+            key={location.id}
+            position={[location.lat, location.lng]}
+            icon={location.type === 'warehouse' ? warehouseIcon : enterpriseIcon}
+          >
+            <Popup>
+              <div className="text-sm">
+                <strong className="text-base">{location.name}</strong>
+                <br />
+                <span className="text-gray-600">{location.location}</span>
+                <br /><br />
 
-              if (location.type === 'warehouse') {
-                balloonContent += '<strong>Остатки:</strong><br/>';
-                location.products.forEach((p: any) => {
-                  balloonContent += `<span style="font-size: 12px;">• ${p.product}: ${p.volume} м³</span><br/>`;
-                });
-                balloonContent += `<br/><strong>Общий объем:</strong> ${location.totalVolume} м³`;
-              } else {
-                balloonContent += '<strong>Потребление:</strong><br/>';
-                location.consumed.forEach((c: any) => {
-                  balloonContent += `<span style="font-size: 12px;">• ${c.product}: ${c.volume} м³/мес</span><br/>`;
-                });
-                balloonContent += '<br/><strong>Производство:</strong><br/>';
-                location.produced.forEach((p: any) => {
-                  balloonContent += `<span style="font-size: 12px;">• ${p.product}: ${p.volume} м³/мес</span><br/>`;
-                });
-                
-                if (location.storage && location.storage.length > 0) {
-                  balloonContent += '<br/><strong>Склады при предприятии:</strong><br/>';
-                  const rawStorage = location.storage.filter((s: any) => s.type === 'raw');
-                  const finishedStorage = location.storage.filter((s: any) => s.type === 'finished');
-                  
-                  if (rawStorage.length > 0) {
-                    balloonContent += '<span style="font-size: 11px; color: #888;">Сырье:</span><br/>';
-                    rawStorage.forEach((s: any) => {
-                      balloonContent += `<span style="font-size: 12px;">• ${s.product}: ${s.volume} м³</span><br/>`;
-                    });
-                  }
-                  
-                  if (finishedStorage.length > 0) {
-                    balloonContent += '<span style="font-size: 11px; color: #888;">Готовая продукция:</span><br/>';
-                    finishedStorage.forEach((s: any) => {
-                      balloonContent += `<span style="font-size: 12px;">• ${s.product}: ${s.volume} м³</span><br/>`;
-                    });
-                  }
-                }
-              }
+                {location.type === 'warehouse' && location.products && (
+                  <>
+                    <strong>Остатки:</strong>
+                    <br />
+                    {location.products.map((p: any, idx: number) => {
+                      const latestData = p.monthlyData?.[p.monthlyData.length - 1];
+                      return (
+                        <div key={idx} className="text-xs">
+                          • {p.product}: {latestData?.volume || 0} м³
+                        </div>
+                      );
+                    })}
+                    <br />
+                    <strong>Общий объем:</strong> {location.totalVolume} м³
+                  </>
+                )}
 
-              balloonContent += '</div>';
+                {location.type === 'enterprise' && (
+                  <>
+                    <strong>Потребление:</strong>
+                    <br />
+                    {location.consumed.map((c: any, idx: number) => {
+                      const latestData = c.monthlyData?.[c.monthlyData.length - 1];
+                      return (
+                        <div key={idx} className="text-xs">
+                          • {c.product}: {latestData?.volume || 0} м³/мес
+                        </div>
+                      );
+                    })}
+                    <br />
+                    <strong>Производство:</strong>
+                    <br />
+                    {location.produced.map((p: any, idx: number) => {
+                      const latestData = p.monthlyData?.[p.monthlyData.length - 1];
+                      return (
+                        <div key={idx} className="text-xs">
+                          • {p.product}: {latestData?.volume || 0} м³/мес
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
 
-              const placemarkOptions: any = {
-                iconLayout: 'default#image',
-                iconImageSize: [40, 40],
-                iconImageOffset: [-20, -40],
-                iconCaptionMaxWidth: '200'
-              };
-
-              if (location.type === 'warehouse') {
-                placemarkOptions.iconImageHref = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9IiMzQjgyRjYiLz4KPHBhdGggZD0iTTEyIDI4VjE2TDIwIDEyTDI4IDE2VjI4SDI0VjIySDIwVjI4SDEyWiIgZmlsbD0id2hpdGUiLz4KPHJlY3QgeD0iMTQiIHk9IjE4IiB3aWR0aD0iMyIgaGVpZ2h0PSIzIiBmaWxsPSIjM0I4MkY2Ii8+CjxyZWN0IHg9IjIzIiB5PSIxOCIgd2lkdGg9IjMiIGhlaWdodD0iMyIgZmlsbD0iIzNCODJGNiIvPgo8L3N2Zz4=';
-              } else {
-                placemarkOptions.iconImageHref = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9IiMxNkEzNEEiLz4KPHBhdGggZD0iTTEyIDI2VjE4SDEzVjE0SDEyVjEySDI4VjE0SDI3VjE4SDI4VjI2SDI3VjI4SDEzVjI2SDEyWiIgZmlsbD0id2hpdGUiLz4KPHJlY3QgeD0iMTUiIHk9IjE0IiB3aWR0aD0iMiIgaGVpZ2h0PSI0IiBmaWxsPSIjMTZBMzRBIi8+CjxyZWN0IHg9IjE5IiB5PSIxNCIgd2lkdGg9IjIiIGhlaWdodD0iNCIgZmlsbD0iIzE2QTM0QSIvPgo8cmVjdCB4PSIyMyIgeT0iMTQiIHdpZHRoPSIyIiBoZWlnaHQ9IjQiIGZpbGw9IiMxNkEzNEEiLz4KPHJlY3QgeD0iMTUiIHk9IjIwIiB3aWR0aD0iMiIgaGVpZ2h0PSI0IiBmaWxsPSIjMTZBMzRBIi8+CjxyZWN0IHg9IjE5IiB5PSIyMCIgd2lkdGg9IjIiIGhlaWdodD0iNCIgZmlsbD0iIzE2QTM0QSIvPgo8cmVjdCB4PSIyMyIgeT0iMjAiIHdpZHRoPSIyIiBoZWlnaHQ9IjQiIGZpbGw9IiMxNkEzNEEiLz4KPHBhdGggZD0iTTE0IDEyTDE3IDEwTDIzIDEwTDI2IDEyIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4=';
-              }
-
-              const placemark = new (window as any).ymaps.Placemark(
-                coords,
-                { 
-                  balloonContent: balloonContent,
-                  iconCaption: location.name
-                },
-                placemarkOptions
-              );
-              map.geoObjects.add(placemark);
-            };
-
-            if (location.lat && location.lng) {
-              createMarker([location.lat, location.lng]);
-            } else {
-              (window as any).ymaps.geocode(location.location).then((res: any) => {
-                const firstGeoObject = res.geoObjects.get(0);
-                if (firstGeoObject) {
-                  const coords = firstGeoObject.geometry.getCoordinates();
-                  createMarker(coords);
-                }
-              });
-            }
-          });
-
-          console.log('MapView: начинаем рисовать маршруты, всего:', routes.length);
-          
-          routes.forEach((route, index) => {
-            console.log(`MapView: рисуем маршрут ${index + 1}:`, route);
-            
-            if (route.fromLat && route.fromLng && route.toLat && route.toLng) {
-              const multiRoute = new (window as any).ymaps.multiRouter.MultiRoute(
-                {
-                  referencePoints: [
-                    [route.fromLat, route.fromLng],
-                    [route.toLat, route.toLng]
-                  ],
-                  params: {
-                    routingMode: 'auto'
-                  }
-                },
-                {
-                  boundsAutoApply: false,
-                  wayPointVisible: false,
-                  routeActiveStrokeWidth: 5,
-                  routeActiveStrokeStyle: 'solid',
-                  routeActiveStrokeColor: `hsl(${(index * 40) % 360}, 70%, 50%)`,
-                  routeStrokeWidth: 4,
-                  routeStrokeStyle: 'solid',
-                  routeStrokeColor: `hsl(${(index * 40) % 360}, 70%, 50%)`,
-                }
-              );
-
-              multiRoute.model.events.add('requestsuccess', () => {
-                const activeRoute = multiRoute.getActiveRoute();
-                if (activeRoute) {
-                  const balloonContent = `
-                    <div style="padding: 8px; max-width: 250px;">
-                      <strong style="color: hsl(${(index * 40) % 360}, 70%, 40%);">${route.product}</strong><br/>
-                      <span style="font-size: 12px;">От: ${route.from}</span><br/>
-                      <span style="font-size: 12px;">До: ${route.to}</span><br/>
-                      <span style="font-size: 12px;">Объём: ${route.volume} м³</span><br/>
-                      <span style="font-size: 12px;">Расстояние: ${route.distance} км</span>
-                      ${route.vehicle ? `<br/><br/><strong>Автомобиль:</strong><br/><span style="font-size: 11px;">${route.vehicle.brand} (${route.vehicle.licensePlate})</span>` : ''}
-                    </div>
-                  `;
-                  
-                  activeRoute.properties.set('balloonContent', balloonContent);
-                }
-              });
-
-              map.geoObjects.add(multiRoute);
-            }
-          });
-        });
-      }
-    };
-
-    if ((window as any).ymaps) {
-      initMap();
-    } else {
-      const existingScript = document.querySelector('script[src*="api-maps.yandex.ru"]');
-      if (existingScript) {
-        existingScript.addEventListener('load', initMap);
-      } else {
-        const script = document.createElement('script');
-        script.src = 'https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU&load=package.full';
-        script.async = true;
-        script.onload = initMap;
-        document.body.appendChild(script);
-      }
-    }
-  }, [locations, routes]);
-
-  return <div ref={mapRef} className="w-full h-full bg-muted"></div>;
+        {routes.map((route, index) => {
+          if (route.fromLat && route.fromLng && route.toLat && route.toLng) {
+            return (
+              <Polyline
+                key={index}
+                positions={[
+                  [route.fromLat, route.fromLng],
+                  [route.toLat, route.toLng],
+                ]}
+                color={routeColors[index % routeColors.length]}
+                weight={4}
+                opacity={0.7}
+              >
+                <Popup>
+                  <div className="text-sm">
+                    <strong>Маршрут #{index + 1}</strong>
+                    <br />
+                    <strong>Продукт:</strong> {route.product}
+                    <br />
+                    <strong>Откуда:</strong> {route.from}
+                    <br />
+                    <strong>Куда:</strong> {route.to}
+                    <br />
+                    <strong>Объём:</strong> {route.volume} м³
+                    <br />
+                    <strong>Расстояние:</strong> {route.distance} км
+                    {route.vehicle && (
+                      <>
+                        <br /><br />
+                        <strong>Автомобиль:</strong>
+                        <br />
+                        {route.vehicle.brand} ({route.vehicle.licensePlate})
+                        <br />
+                        Вместимость: {route.vehicle.volume} м³
+                      </>
+                    )}
+                  </div>
+                </Popup>
+              </Polyline>
+            );
+          }
+          return null;
+        })}
+      </MapContainer>
+    </div>
+  );
 }
