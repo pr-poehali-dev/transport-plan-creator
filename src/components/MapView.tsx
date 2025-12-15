@@ -132,12 +132,13 @@ export default function MapView() {
               dashArray: isRealRoute ? undefined : '10, 10'
             }).addTo(map).bindPopup(
               `<strong>${r.from} → ${r.to}</strong><br/>` +
+              (r.vehicle ? `Машина: ${r.vehicle} (${r.vehicleType})<br/>` : '') +
               `Продукт: ${r.product}<br/>` +
               `Объём: ${r.volume} м³<br/>` +
-              `Расстояние: ${data.distance} км<br/>` +
-              `Время: ~${data.duration} мин<br/>` +
-              `<small>${data.fallback ? '⚠️ Примерный маршрут' : '✓ Маршрут по дорогам'}</small><br/>` +
-              `<small>${r.reason || ''}</small>`
+              `Расстояние: ${data.distance || r.distance} км<br/>` +
+              (r.parkingDistance ? `Пробег от стоянки: ${r.parkingDistance} км<br/>` : '') +
+              (data.duration ? `Время: ~${data.duration} мин<br/>` : '') +
+              `<small>${data.fallback ? '⚠️ Примерный маршрут' : '✓ Маршрут по дорогам'}</small>`
             );
             
             polylinesRef.current.push(polyline);

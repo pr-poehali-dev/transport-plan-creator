@@ -27,12 +27,25 @@
               "Бензин АИ-95": 200
             }
           }
+        ],
+        "vehicles": [
+          {
+            "id": 1,
+            "number": "А123БВ",
+            "category": "Бензовоз",
+            "volume": 30,
+            "status": "active",
+            "enterprise": "Завод Б",
+            "productTypes": ["Бензин АИ-95", "Дизель"]
+          }
         ]
       },
       "expectedStatus": 200,
       "expectedBody": {
+        "month": "string",
         "routes": "array",
-        "total_routes": "number"
+        "total_routes": "number",
+        "summary": "object"
       },
       "bodyMatcher": "partial"
     },

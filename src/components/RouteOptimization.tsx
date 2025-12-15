@@ -251,12 +251,15 @@ export default function RouteOptimization({ onShowOnMap }: RouteOptimizationProp
               <Card key={index} className="p-4 border-l-4 border-l-primary">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">Маршрут #{index + 1}</Badge>
+                    <Badge variant="outline">Рейс #{index + 1}</Badge>
                     <Badge variant="secondary">{route.product}</Badge>
                   </div>
                   <div className="text-right">
                     <div className="text-sm text-muted-foreground">Расстояние</div>
                     <div className="font-semibold">{route.distance} км</div>
+                    {route.parkingDistance > 0 && (
+                      <div className="text-xs text-muted-foreground">+{route.parkingDistance} км от стоянки</div>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -276,13 +279,7 @@ export default function RouteOptimization({ onShowOnMap }: RouteOptimizationProp
                 {route.vehicle && (
                   <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
                     <Icon name="Truck" size={12} className="inline mr-1 text-blue-600" />
-                    <span className="font-semibold">Автомобиль:</span> {route.vehicle.brand} ({route.vehicle.licensePlate}) - {route.vehicle.volume} м³
-                  </div>
-                )}
-                {route.reason && (
-                  <div className="mt-2 p-2 bg-muted rounded text-xs">
-                    <Icon name="Info" size={12} className="inline mr-1" />
-                    {route.reason}
+                    <span className="font-semibold">Машина:</span> {route.vehicle} ({route.vehicleType})
                   </div>
                 )}
               </Card>

@@ -1,10 +1,10 @@
 """
-Оптимизация маршрутов доставки на основе остатков складов и потребностей предприятий.
-Использует Яндекс.Карты API для расчёта расстояний и ИИ-алгоритмы для оптимизации.
+Оптимизация маршрутов с полным вывозом товаров и распределением машин.
+Учитывает: стоянку машин, грузоподъёмность, цепочки рейсов для универсалов.
 """
 import json
 import os
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, Tuple
 import math
 
 
@@ -38,39 +38,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     enterprises = body_data.get('enterprises', [])
     vehicles = body_data.get('vehicles', [])
     
-    print(f"=== DEBUG: Received request for month: {month}")
-    print(f"=== DEBUG: Warehouses count: {len(warehouses)}")
-    print(f"=== DEBUG: Enterprises count: {len(enterprises)}")
-    print(f"=== DEBUG: Warehouses data: {json.dumps(warehouses, ensure_ascii=False)}")
-    print(f"=== DEBUG: Enterprises data: {json.dumps(enterprises, ensure_ascii=False)}")
+    print(f"=== Получен запрос: месяц={month}, складов={len(warehouses)}, предприятий={len(enterprises)}, машин={len(vehicles)}")
     
-    if not warehouses or not enterprises:
+    if not warehouses or not enterprises or not vehicles:
         return {
             'statusCode': 400,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Warehouses and enterprises are required'}),
+            'body': json.dumps({'error': 'Требуются склады, предприятия и транспорт'}),
             'isBase64Encoded': False
         }
     
-    routes = optimize_routes(warehouses, enterprises, vehicles, month)
-    
-    warehouse_stocks_summary = []
-    for w in warehouses:
-        stocks = w.get('stocks', {})
-        warehouse_stocks_summary.append({
-            'name': w.get('name', 'Unknown'),
-            'stocks': stocks,
-            'total_products': len(stocks)
-        })
-    
-    enterprise_needs_summary = []
-    for e in enterprises:
-        needs = e.get('needs', {})
-        enterprise_needs_summary.append({
-            'name': e.get('name', 'Unknown'),
-            'needs': needs,
-            'total_products': len(needs)
-        })
+    routes = optimize_routes_full(warehouses, enterprises, vehicles, month)
     
     return {
         'statusCode': 200,
@@ -79,22 +57,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'month': month,
             'routes': routes,
             'total_routes': len(routes),
-            'debug': {
-                'warehouses': warehouse_stocks_summary,
-                'enterprises': enterprise_needs_summary
-            }
+            'summary': generate_summary(routes)
         }),
         'isBase64Encoded': False
     }
 
 
 def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-    """Расчёт расстояния между двумя точками по формуле гаверсинусов (км)"""
+    """Расчёт расстояния между двумя точками (км)"""
     if not all([lat1, lng1, lat2, lng2]):
         return 999999.0
     
     R = 6371.0
-    
     lat1_rad = math.radians(lat1)
     lat2_rad = math.radians(lat2)
     delta_lat = math.radians(lat2 - lat1)
@@ -106,137 +80,316 @@ def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
     return round(R * c, 2)
 
 
-def normalize_product_name(name: str) -> str:
-    """Нормализация названия продукта для корректного сопоставления"""
+def normalize_product(name: str) -> str:
+    """Нормализация названий продуктов"""
     return name.strip().lower()
 
 
-def find_suitable_vehicle(product_normalized: str, volume: float, enterprise_name: str, vehicles: List[Dict]) -> Dict:
-    """Находит подходящий автомобиль для перевозки груза"""
-    for vehicle in vehicles:
-        if vehicle.get('status') != 'active':
-            continue
-        
-        vehicle_products = [normalize_product_name(p) for p in vehicle.get('productTypes', [])]
-        
-        if product_normalized in vehicle_products:
-            if vehicle.get('volume', 0) >= volume:
-                if vehicle.get('enterprise', '') == enterprise_name:
-                    return vehicle
-    
-    for vehicle in vehicles:
-        if vehicle.get('status') != 'active':
-            continue
-        
-        vehicle_products = [normalize_product_name(p) for p in vehicle.get('productTypes', [])]
-        
-        if product_normalized in vehicle_products:
-            if vehicle.get('volume', 0) >= volume:
-                return vehicle
-    
-    return None
+def can_vehicle_carry(vehicle: Dict, product: str) -> bool:
+    """Проверяет, может ли машина везти данный товар"""
+    vehicle_products = [normalize_product(p) for p in vehicle.get('productTypes', [])]
+    return normalize_product(product) in vehicle_products
 
 
-def optimize_routes(warehouses: List[Dict], enterprises: List[Dict], vehicles: List[Dict], month: str) -> List[Dict]:
+def optimize_routes_full(warehouses: List[Dict], enterprises: List[Dict], vehicles: List[Dict], month: str) -> List[Dict]:
     """
-    Алгоритм оптимизации маршрутов:
-    1. Для каждого предприятия находим нужную продукцию
-    2. Для каждого товара ищем ближайший склад с достаточным запасом
-    3. Назначаем подходящий автомобиль
-    4. Создаём маршрут от склада до предприятия
-    5. Учитываем остатки и не превышаем их
+    Полная оптимизация:
+    1. Создаём копию остатков складов
+    2. Для каждой активной машины:
+       - Начинаем от места стоянки
+       - Строим цепочку рейсов до полного вывоза товаров
+       - Для универсалов: Склад→Завод(погрузка)→ДОК→Склад...
     """
     routes = []
     
-    print(f"=== OPTIMIZE: Starting optimization for {len(warehouses)} warehouses, {len(enterprises)} enterprises, {len(vehicles)} vehicles")
-    
-    warehouse_stocks = {}
+    # Копия остатков (будем уменьшать по мере вывоза)
+    remaining_stocks = {}
     for w in warehouses:
         stocks_normalized = {}
         for product, volume in w.get('stocks', {}).items():
-            normalized_key = normalize_product_name(product)
-            stocks_normalized[normalized_key] = volume
-            print(f"=== OPTIMIZE: Warehouse '{w.get('name')}' has '{product}' (normalized: '{normalized_key}'): {volume} м³")
-        warehouse_stocks[w['id']] = stocks_normalized
-    
-    for enterprise in enterprises:
-        enterprise_needs_raw = enterprise.get('needs', {})
-        print(f"=== OPTIMIZE: Enterprise '{enterprise.get('name')}' needs: {enterprise_needs_raw}")
-        
-        enterprise_needs = {}
-        for product, volume in enterprise_needs_raw.items():
-            normalized_key = normalize_product_name(product)
-            enterprise_needs[normalized_key] = volume
-            print(f"=== OPTIMIZE: Enterprise needs '{product}' (normalized: '{normalized_key}'): {volume} м³")
-        
-        for product_normalized, needed_volume in enterprise_needs.items():
-            if needed_volume <= 0:
-                continue
-            
-            best_warehouse = None
-            best_distance = float('inf')
-            
-            print(f"=== OPTIMIZE: Looking for warehouse with '{product_normalized}'...")
-            
-            for warehouse in warehouses:
-                available = warehouse_stocks.get(warehouse['id'], {}).get(product_normalized, 0)
-                print(f"=== OPTIMIZE: Warehouse '{warehouse.get('name')}' has {available} м³ of '{product_normalized}'")
-                
-                
-                if available <= 0:
-                    continue
-                
-                distance = calculate_distance(
-                    warehouse.get('lat', 0),
-                    warehouse.get('lng', 0),
-                    enterprise.get('lat', 0),
-                    enterprise.get('lng', 0)
-                )
-                
-                if distance < best_distance:
-                    best_distance = distance
-                    best_warehouse = warehouse
-            
-            if best_warehouse:
-                available_volume = warehouse_stocks[best_warehouse['id']].get(product_normalized, 0)
-                transport_volume = min(needed_volume, available_volume)
-                
-                original_product_name = None
-                for p in enterprise_needs_raw.keys():
-                    if normalize_product_name(p) == product_normalized:
-                        original_product_name = p
-                        break
-                
-                assigned_vehicle = find_suitable_vehicle(product_normalized, transport_volume, enterprise['name'], vehicles)
-                
-                route = {
-                    'product': original_product_name or product_normalized,
-                    'from': best_warehouse['name'],
-                    'fromLat': best_warehouse.get('lat'),
-                    'fromLng': best_warehouse.get('lng'),
-                    'to': enterprise['name'],
-                    'toLat': enterprise.get('lat'),
-                    'toLng': enterprise.get('lng'),
-                    'volume': transport_volume,
-                    'distance': best_distance,
-                    'reason': f'Ближайший склад с запасом {original_product_name or product_normalized}. Остаток на складе: {available_volume} м³'
+            key = normalize_product(product)
+            if volume > 0:
+                stocks_normalized[key] = {
+                    'volume': volume,
+                    'original_name': product
                 }
-                
-                if assigned_vehicle:
-                    route['vehicle'] = {
-                        'brand': assigned_vehicle.get('brand'),
-                        'licensePlate': assigned_vehicle.get('licensePlate'),
-                        'volume': assigned_vehicle.get('volume'),
-                        'enterprise': assigned_vehicle.get('enterprise')
-                    }
-                
-                routes.append(route)
-                
-                warehouse_stocks[best_warehouse['id']][product_normalized] -= transport_volume
-                print(f"=== OPTIMIZE: Created route: {best_warehouse['name']} -> {enterprise['name']}, {original_product_name}, {transport_volume} м³, Vehicle: {assigned_vehicle.get('brand') if assigned_vehicle else 'None'}")
-            else:
-                print(f"=== OPTIMIZE: No warehouse found with '{product_normalized}' for {enterprise.get('name')}")
+        remaining_stocks[w['id']] = stocks_normalized
     
-    routes.sort(key=lambda r: r['distance'])
+    # Копия потребностей (будем уменьшать по мере доставки)
+    remaining_needs = {}
+    for e in enterprises:
+        needs_normalized = {}
+        for product, volume in e.get('needs', {}).items():
+            key = normalize_product(product)
+            if volume > 0:
+                needs_normalized[key] = {
+                    'volume': volume,
+                    'original_name': product
+                }
+        remaining_needs[e['id']] = needs_normalized
+    
+    print(f"=== Начальные остатки: {sum(len(s) for s in remaining_stocks.values())} позиций на складах")
+    print(f"=== Начальные потребности: {sum(len(n) for n in remaining_needs.values())} позиций на предприятиях")
+    
+    # Сортируем машины по грузоподъёмности (большие сначала)
+    active_vehicles = [v for v in vehicles if v.get('status') == 'active']
+    active_vehicles.sort(key=lambda v: v.get('volume', 0), reverse=True)
+    
+    print(f"=== Активных машин: {len(active_vehicles)}")
+    
+    for vehicle in active_vehicles:
+        vehicle_routes = build_vehicle_routes(
+            vehicle, warehouses, enterprises, remaining_stocks, remaining_needs
+        )
+        routes.extend(vehicle_routes)
+        
+        if vehicle_routes:
+            print(f"=== Машина {vehicle['number']}: создано {len(vehicle_routes)} рейсов")
+    
+    # Проверяем, что осталось на складах
+    total_remaining = sum(
+        data['volume'] 
+        for warehouse_stocks in remaining_stocks.values() 
+        for data in warehouse_stocks.values()
+    )
+    
+    if total_remaining > 0:
+        print(f"⚠️ ВНИМАНИЕ: На складах осталось {total_remaining:.1f} м³ товаров")
+        for wid, stocks in remaining_stocks.items():
+            if stocks:
+                warehouse = next((w for w in warehouses if w['id'] == wid), None)
+                print(f"   {warehouse['name'] if warehouse else wid}: {stocks}")
     
     return routes
+
+
+def build_vehicle_routes(
+    vehicle: Dict,
+    warehouses: List[Dict],
+    enterprises: List[Dict],
+    remaining_stocks: Dict,
+    remaining_needs: Dict
+) -> List[Dict]:
+    """
+    Строит цепочку рейсов для одной машины:
+    - Начало: место стоянки машины
+    - Цикл: находим ближайший склад с подходящим товаром → везём на нужное предприятие
+    - Для универсалов: если везём доски/брус на Завод, загружаемся щепой и везём на ДОК
+    """
+    vehicle_routes = []
+    vehicle_capacity = vehicle.get('volume', 0)
+    vehicle_number = vehicle.get('number', 'Неизвестно')
+    vehicle_products = [normalize_product(p) for p in vehicle.get('productTypes', [])]
+    
+    # Стоянка машины (предприятие)
+    parking_enterprise_name = vehicle.get('enterprise', '')
+    parking_enterprise = next((e for e in enterprises if e['name'] == parking_enterprise_name), None)
+    
+    if not parking_enterprise:
+        print(f"⚠️ Машина {vehicle_number}: не найдено предприятие-стоянка '{parking_enterprise_name}'")
+        return []
+    
+    current_lat = parking_enterprise['lat']
+    current_lng = parking_enterprise['lng']
+    current_location = parking_enterprise['name']
+    
+    # Флаг: универсал ли?
+    is_universal = 'универсал' in normalize_product(vehicle.get('category', ''))
+    
+    trips_count = 0
+    max_trips = 50  # защита от бесконечного цикла
+    
+    while trips_count < max_trips:
+        # Ищем ближайший склад с товаром, который машина может везти
+        best_trip = find_best_trip(
+            current_lat, current_lng, current_location,
+            vehicle, vehicle_products, vehicle_capacity,
+            warehouses, enterprises,
+            remaining_stocks, remaining_needs
+        )
+        
+        if not best_trip:
+            print(f"Машина {vehicle_number}: больше нет подходящих рейсов (сделано {trips_count})")
+            break
+        
+        # Создаём основной маршрут: текущая позиция → склад → предприятие
+        main_route = {
+            'vehicle': vehicle_number,
+            'vehicleType': vehicle.get('category', 'Неизвестно'),
+            'product': best_trip['product_original'],
+            'volume': best_trip['volume'],
+            'from': best_trip['warehouse']['name'],
+            'fromLat': best_trip['warehouse']['lat'],
+            'fromLng': best_trip['warehouse']['lng'],
+            'to': best_trip['enterprise']['name'],
+            'toLat': best_trip['enterprise']['lat'],
+            'toLng': best_trip['enterprise']['lng'],
+            'distance': best_trip['distance_delivery'],
+            'parkingDistance': best_trip['distance_to_warehouse']
+        }
+        
+        vehicle_routes.append(main_route)
+        
+        # Обновляем остатки и потребности
+        warehouse_id = best_trip['warehouse']['id']
+        enterprise_id = best_trip['enterprise']['id']
+        product_key = best_trip['product_key']
+        
+        remaining_stocks[warehouse_id][product_key]['volume'] -= best_trip['volume']
+        if remaining_stocks[warehouse_id][product_key]['volume'] <= 0:
+            del remaining_stocks[warehouse_id][product_key]
+        
+        if product_key in remaining_needs[enterprise_id]:
+            remaining_needs[enterprise_id][product_key]['volume'] -= best_trip['volume']
+            if remaining_needs[enterprise_id][product_key]['volume'] <= 0:
+                del remaining_needs[enterprise_id][product_key]
+        
+        # Универсал на Заводе: загружаем щепой и везём на Павловский ДОК
+        if is_universal and best_trip['enterprise']['name'] == 'Завод':
+            dok_enterprise = next((e for e in enterprises if 'павловский док' in normalize_product(e['name'])), None)
+            
+            if dok_enterprise and 'щепа' in vehicle_products:
+                # Проверяем, нужна ли щепа на ДОКе
+                dok_needs = remaining_needs.get(dok_enterprise['id'], {})
+                chips_key = normalize_product('Щепа')
+                
+                if chips_key in dok_needs:
+                    chips_volume = min(vehicle_capacity, dok_needs[chips_key]['volume'])
+                    chips_distance = calculate_distance(
+                        best_trip['enterprise']['lat'], best_trip['enterprise']['lng'],
+                        dok_enterprise['lat'], dok_enterprise['lng']
+                    )
+                    
+                    chips_route = {
+                        'vehicle': vehicle_number,
+                        'vehicleType': vehicle.get('category', 'Универсал'),
+                        'product': 'Щепа',
+                        'volume': chips_volume,
+                        'from': 'Завод',
+                        'fromLat': best_trip['enterprise']['lat'],
+                        'fromLng': best_trip['enterprise']['lng'],
+                        'to': dok_enterprise['name'],
+                        'toLat': dok_enterprise['lat'],
+                        'toLng': dok_enterprise['lng'],
+                        'distance': chips_distance,
+                        'parkingDistance': 0  # уже в пути
+                    }
+                    
+                    vehicle_routes.append(chips_route)
+                    
+                    # Обновляем потребности ДОКа
+                    remaining_needs[dok_enterprise['id']][chips_key]['volume'] -= chips_volume
+                    if remaining_needs[dok_enterprise['id']][chips_key]['volume'] <= 0:
+                        del remaining_needs[dok_enterprise['id']][chips_key]
+                    
+                    # Текущая позиция = Павловский ДОК
+                    current_lat = dok_enterprise['lat']
+                    current_lng = dok_enterprise['lng']
+                    current_location = dok_enterprise['name']
+                else:
+                    # Щепа не нужна, возвращаемся на склад
+                    current_lat = best_trip['enterprise']['lat']
+                    current_lng = best_trip['enterprise']['lng']
+                    current_location = best_trip['enterprise']['name']
+            else:
+                # Нет ДОКа или машина не везёт щепу
+                current_lat = best_trip['enterprise']['lat']
+                current_lng = best_trip['enterprise']['lng']
+                current_location = best_trip['enterprise']['name']
+        else:
+            # Обычная машина или не завод
+            current_lat = best_trip['enterprise']['lat']
+            current_lng = best_trip['enterprise']['lng']
+            current_location = best_trip['enterprise']['name']
+        
+        trips_count += 1
+    
+    return vehicle_routes
+
+
+def find_best_trip(
+    current_lat: float,
+    current_lng: float,
+    current_location: str,
+    vehicle: Dict,
+    vehicle_products: List[str],
+    vehicle_capacity: float,
+    warehouses: List[Dict],
+    enterprises: List[Dict],
+    remaining_stocks: Dict,
+    remaining_needs: Dict
+) -> Optional[Dict]:
+    """
+    Находит лучший рейс: ближайший склад с товаром → предприятие с потребностью
+    Возвращает: {warehouse, enterprise, product_key, product_original, volume, distance_to_warehouse, distance_delivery}
+    """
+    best_trip = None
+    best_total_distance = float('inf')
+    
+    for warehouse in warehouses:
+        warehouse_stocks = remaining_stocks.get(warehouse['id'], {})
+        if not warehouse_stocks:
+            continue
+        
+        distance_to_warehouse = calculate_distance(
+            current_lat, current_lng,
+            warehouse['lat'], warehouse['lng']
+        )
+        
+        for product_key, stock_data in warehouse_stocks.items():
+            if product_key not in vehicle_products:
+                continue
+            
+            available_volume = stock_data['volume']
+            if available_volume <= 0:
+                continue
+            
+            # Ищем предприятие, которому нужен этот товар
+            for enterprise in enterprises:
+                enterprise_needs_dict = remaining_needs.get(enterprise['id'], {})
+                if product_key not in enterprise_needs_dict:
+                    continue
+                
+                needed_volume = enterprise_needs_dict[product_key]['volume']
+                if needed_volume <= 0:
+                    continue
+                
+                distance_delivery = calculate_distance(
+                    warehouse['lat'], warehouse['lng'],
+                    enterprise['lat'], enterprise['lng']
+                )
+                
+                total_distance = distance_to_warehouse + distance_delivery
+                
+                if total_distance < best_total_distance:
+                    transport_volume = min(vehicle_capacity, available_volume, needed_volume)
+                    
+                    best_trip = {
+                        'warehouse': warehouse,
+                        'enterprise': enterprise,
+                        'product_key': product_key,
+                        'product_original': stock_data['original_name'],
+                        'volume': transport_volume,
+                        'distance_to_warehouse': distance_to_warehouse,
+                        'distance_delivery': distance_delivery
+                    }
+                    best_total_distance = total_distance
+    
+    return best_trip
+
+
+def generate_summary(routes: List[Dict]) -> Dict:
+    """Генерирует сводку по маршрутам"""
+    if not routes:
+        return {'total_distance': 0, 'total_volume': 0, 'vehicles_used': 0}
+    
+    total_distance = sum(r.get('distance', 0) + r.get('parkingDistance', 0) for r in routes)
+    total_volume = sum(r.get('volume', 0) for r in routes)
+    vehicles_used = len(set(r.get('vehicle', '') for r in routes))
+    
+    return {
+        'total_distance': round(total_distance, 1),
+        'total_volume': round(total_volume, 1),
+        'vehicles_used': vehicles_used,
+        'trips_count': len(routes)
+    }
