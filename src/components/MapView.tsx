@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-routing-machine';
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 
 export default function MapView() {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -101,13 +103,26 @@ export default function MapView() {
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
     routes.forEach((r, i) => {
       if (r.fromLat && r.fromLng && r.toLat && r.toLng) {
-        const line = L.polyline([[r.fromLat, r.fromLng], [r.toLat, r.toLng]], {
-          color: colors[i % colors.length],
-          weight: 4,
-          opacity: 0.7
+        (L as any).Routing.control({
+          waypoints: [
+            L.latLng(r.fromLat, r.fromLng),
+            L.latLng(r.toLat, r.toLng)
+          ],
+          router: (L as any).Routing.osrmv1({
+            serviceUrl: 'https://router.project-osrm.org/route/v1'
+          }),
+          lineOptions: {
+            styles: [{ color: colors[i % colors.length], weight: 4, opacity: 0.7 }],
+            addWaypoints: false
+          },
+          show: false,
+          addWaypoints: false,
+          routeWhileDragging: false,
+          draggableWaypoints: false,
+          fitSelectedRoutes: false,
+          showAlternatives: false,
+          createMarker: () => null
         }).addTo(map);
-
-        line.bindPopup(`<strong>Маршрут #${i + 1}</strong><br/><strong>Продукт:</strong> ${r.product}<br/><strong>Откуда:</strong> ${r.from}<br/><strong>Куда:</strong> ${r.to}<br/><strong>Объём:</strong> ${r.volume} м³<br/><strong>Расстояние:</strong> ${r.distance} км`);
       }
     });
   }, [locations, routes]);
