@@ -27,6 +27,7 @@ export default function VehiclePanel() {
   });
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showClearDialog, setShowClearDialog] = useState(false);
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -239,6 +240,16 @@ export default function VehiclePanel() {
     setEditVehicle(null);
   };
 
+  const handleClearAll = () => {
+    setVehicles([]);
+    localStorage.removeItem('vehicles');
+    toast({
+      title: 'Данные очищены',
+      description: 'Все машины удалены из справочника',
+    });
+    setShowClearDialog(false);
+  };
+
   return (
     <div className="space-y-6">
       <VehicleStatsCards
@@ -267,6 +278,15 @@ export default function VehiclePanel() {
               >
                 <Icon name="Upload" size={16} className="mr-2" />
                 Импорт из Excel
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowClearDialog(true)}
+                disabled={vehicles.length === 0}
+              >
+                <Icon name="Trash2" size={16} className="mr-2" />
+                Очистить все
               </Button>
               <Button size="sm" onClick={openAddDialog}>
                 <Icon name="Plus" size={16} className="mr-2" />
@@ -302,6 +322,21 @@ export default function VehiclePanel() {
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>Удалить</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Очистить все данные?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить. Все машины ({vehicles.length} шт.) будут удалены из справочника.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearAll}>Очистить</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
