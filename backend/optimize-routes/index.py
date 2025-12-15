@@ -137,6 +137,18 @@ def optimize_routes_full(warehouses: List[Dict], enterprises: List[Dict], vehicl
     
     print(f"=== Активных машин: {len(active_vehicles)}")
     
+    # Логирование для диагностики
+    all_warehouse_products = set()
+    for stocks in remaining_stocks.values():
+        all_warehouse_products.update(stocks.keys())
+    
+    all_vehicle_products = set()
+    for v in active_vehicles:
+        all_vehicle_products.update(normalize_product(p) for p in v.get('productTypes', []))
+    
+    print(f"=== Товары на складах: {sorted(all_warehouse_products)}")
+    print(f"=== Товары, которые везут машины: {sorted(all_vehicle_products)}")
+    
     for vehicle in active_vehicles:
         vehicle_routes = build_vehicle_routes(
             vehicle, warehouses, enterprises, remaining_stocks, remaining_needs
@@ -186,8 +198,12 @@ def build_vehicle_routes(
     parking_enterprise = next((e for e in enterprises if e['name'] == parking_enterprise_name), None)
     
     if not parking_enterprise:
-        print(f"⚠️ Машина {vehicle_number}: не найдено предприятие-стоянка '{parking_enterprise_name}'")
-        return []
+        if enterprises:
+            parking_enterprise = enterprises[0]
+            print(f"⚠️ Машина {vehicle_number}: предприятие '{parking_enterprise_name}' не найдено, использую {parking_enterprise['name']}")
+        else:
+            print(f"⚠️ Машина {vehicle_number}: нет доступных предприятий")
+            return []
     
     current_lat = parking_enterprise['lat']
     current_lng = parking_enterprise['lng']
