@@ -196,8 +196,14 @@ export default function EnterprisePanel() {
       return;
     }
 
-    const consumed = validConsumed.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
-    const produced = validProduced.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
+    const consumed = validConsumed.map((p) => ({ 
+      product: p.product,
+      monthlyData: [{ month: 'Январь 2025', volume: parseInt(p.volume) }]
+    }));
+    const produced = validProduced.map((p) => ({ 
+      product: p.product,
+      monthlyData: [{ month: 'Январь 2025', volume: parseInt(p.volume) }]
+    }));
     const storage = storageItems
       .filter((s) => s.product && s.volume)
       .map((s) => ({ product: s.product, volume: parseInt(s.volume), type: s.type }));
@@ -211,8 +217,8 @@ export default function EnterprisePanel() {
       consumed,
       produced,
       storage,
-      monthlyConsumption: consumed.reduce((sum, p) => sum + p.volume, 0),
-      monthlyProduction: produced.reduce((sum, p) => sum + p.volume, 0),
+      monthlyConsumption: consumed.reduce((sum, p) => sum + (p.monthlyData[0]?.volume || 0), 0),
+      monthlyProduction: produced.reduce((sum, p) => sum + (p.monthlyData[0]?.volume || 0), 0),
     };
 
     setEnterprises([...enterprises, newEnterprise]);
@@ -241,8 +247,14 @@ export default function EnterprisePanel() {
       return;
     }
 
-    const consumed = validConsumed.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
-    const produced = validProduced.map((p) => ({ product: p.product, volume: parseInt(p.volume) }));
+    const consumed = validConsumed.map((p) => ({ 
+      product: p.product,
+      monthlyData: [{ month: 'Январь 2025', volume: parseInt(p.volume) }]
+    }));
+    const produced = validProduced.map((p) => ({ 
+      product: p.product,
+      monthlyData: [{ month: 'Январь 2025', volume: parseInt(p.volume) }]
+    }));
     const storage = storageItems
       .filter((s) => s.product && s.volume)
       .map((s) => ({ product: s.product, volume: parseInt(s.volume), type: s.type }));
@@ -256,8 +268,8 @@ export default function EnterprisePanel() {
       consumed,
       produced,
       storage,
-      monthlyConsumption: consumed.reduce((sum, p) => sum + p.volume, 0),
-      monthlyProduction: produced.reduce((sum, p) => sum + p.volume, 0),
+      monthlyConsumption: consumed.reduce((sum, p) => sum + (p.monthlyData[0]?.volume || 0), 0),
+      monthlyProduction: produced.reduce((sum, p) => sum + (p.monthlyData[0]?.volume || 0), 0),
     };
 
     setEnterprises(enterprises.map((e) => (e.id === editEnterprise.id ? updatedEnterprise : e)));
@@ -281,8 +293,18 @@ export default function EnterprisePanel() {
       lat: enterprise.lat?.toString() || '',
       lng: enterprise.lng?.toString() || '',
     });
-    setConsumedProducts(enterprise.consumed.map((p) => ({ product: p.product, volume: p.volume.toString() })));
-    setProducedProducts(enterprise.produced.map((p) => ({ product: p.product, volume: p.volume.toString() })));
+    setConsumedProducts(enterprise.consumed.map((p) => {
+      const latestVolume = p.monthlyData && p.monthlyData.length > 0 
+        ? p.monthlyData[p.monthlyData.length - 1].volume 
+        : 0;
+      return { product: p.product, volume: latestVolume.toString() };
+    }));
+    setProducedProducts(enterprise.produced.map((p) => {
+      const latestVolume = p.monthlyData && p.monthlyData.length > 0
+        ? p.monthlyData[p.monthlyData.length - 1].volume
+        : 0;
+      return { product: p.product, volume: latestVolume.toString() };
+    }));
     setStorageItems(
       enterprise.storage && enterprise.storage.length > 0
         ? enterprise.storage.map((s) => ({ product: s.product, volume: s.volume.toString(), type: s.type }))
@@ -372,20 +394,40 @@ export default function EnterprisePanel() {
                   </TableCell>
                   <TableCell>
                     <div className="text-xs space-y-1">
-                      {enterprise.consumed.map((c, idx) => (
-                        <div key={idx}>
-                          <span className="font-medium">{c.product}:</span> {c.volume} м³
-                        </div>
-                      ))}
+                      {enterprise.consumed.map((c, idx) => {
+                        const latestMonth = c.monthlyData && c.monthlyData.length > 0 
+                          ? c.monthlyData[c.monthlyData.length - 1] 
+                          : null;
+                        return (
+                          <div key={idx}>
+                            <span className="font-medium">{c.product}</span>
+                            {latestMonth && (
+                              <span className="text-muted-foreground ml-1">
+                                ({latestMonth.month}: {latestMonth.volume} м³)
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-xs space-y-1">
-                      {enterprise.produced.map((p, idx) => (
-                        <div key={idx}>
-                          <span className="font-medium">{p.product}:</span> {p.volume} м³
-                        </div>
-                      ))}
+                      {enterprise.produced.map((p, idx) => {
+                        const latestMonth = p.monthlyData && p.monthlyData.length > 0
+                          ? p.monthlyData[p.monthlyData.length - 1]
+                          : null;
+                        return (
+                          <div key={idx}>
+                            <span className="font-medium">{p.product}</span>
+                            {latestMonth && (
+                              <span className="text-muted-foreground ml-1">
+                                ({latestMonth.month}: {latestMonth.volume} м³)
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </TableCell>
                   <TableCell>
