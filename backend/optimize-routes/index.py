@@ -37,6 +37,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     warehouses = body_data.get('warehouses', [])
     enterprises = body_data.get('enterprises', [])
     
+    print(f"=== DEBUG: Received request for month: {month}")
+    print(f"=== DEBUG: Warehouses count: {len(warehouses)}")
+    print(f"=== DEBUG: Enterprises count: {len(enterprises)}")
+    print(f"=== DEBUG: Warehouses data: {json.dumps(warehouses, ensure_ascii=False)}")
+    print(f"=== DEBUG: Enterprises data: {json.dumps(enterprises, ensure_ascii=False)}")
+    
     if not warehouses or not enterprises:
         return {
             'statusCode': 400,
@@ -99,6 +105,11 @@ def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
     return round(R * c, 2)
 
 
+def normalize_product_name(name: str) -> str:
+    """Нормализация названия продукта для корректного сопоставления"""
+    return name.strip().lower()
+
+
 def optimize_routes(warehouses: List[Dict], enterprises: List[Dict], month: str) -> List[Dict]:
     """
     Алгоритм оптимизации маршрутов:
@@ -109,22 +120,40 @@ def optimize_routes(warehouses: List[Dict], enterprises: List[Dict], month: str)
     """
     routes = []
     
+    print(f"=== OPTIMIZE: Starting optimization for {len(warehouses)} warehouses and {len(enterprises)} enterprises")
+    
     warehouse_stocks = {}
     for w in warehouses:
-        warehouse_stocks[w['id']] = w['stocks'].copy() if 'stocks' in w else {}
+        stocks_normalized = {}
+        for product, volume in w.get('stocks', {}).items():
+            normalized_key = normalize_product_name(product)
+            stocks_normalized[normalized_key] = volume
+            print(f"=== OPTIMIZE: Warehouse '{w.get('name')}' has '{product}' (normalized: '{normalized_key}'): {volume} м³")
+        warehouse_stocks[w['id']] = stocks_normalized
     
     for enterprise in enterprises:
-        enterprise_needs = enterprise.get('needs', {})
+        enterprise_needs_raw = enterprise.get('needs', {})
+        print(f"=== OPTIMIZE: Enterprise '{enterprise.get('name')}' needs: {enterprise_needs_raw}")
         
-        for product, needed_volume in enterprise_needs.items():
+        enterprise_needs = {}
+        for product, volume in enterprise_needs_raw.items():
+            normalized_key = normalize_product_name(product)
+            enterprise_needs[normalized_key] = volume
+            print(f"=== OPTIMIZE: Enterprise needs '{product}' (normalized: '{normalized_key}'): {volume} м³")
+        
+        for product_normalized, needed_volume in enterprise_needs.items():
             if needed_volume <= 0:
                 continue
             
             best_warehouse = None
             best_distance = float('inf')
             
+            print(f"=== OPTIMIZE: Looking for warehouse with '{product_normalized}'...")
+            
             for warehouse in warehouses:
-                available = warehouse_stocks.get(warehouse['id'], {}).get(product, 0)
+                available = warehouse_stocks.get(warehouse['id'], {}).get(product_normalized, 0)
+                print(f"=== OPTIMIZE: Warehouse '{warehouse.get('name')}' has {available} м³ of '{product_normalized}'")
+                
                 
                 if available <= 0:
                     continue
@@ -141,19 +170,28 @@ def optimize_routes(warehouses: List[Dict], enterprises: List[Dict], month: str)
                     best_warehouse = warehouse
             
             if best_warehouse:
-                available_volume = warehouse_stocks[best_warehouse['id']].get(product, 0)
+                available_volume = warehouse_stocks[best_warehouse['id']].get(product_normalized, 0)
                 transport_volume = min(needed_volume, available_volume)
                 
+                original_product_name = None
+                for p in enterprise_needs_raw.keys():
+                    if normalize_product_name(p) == product_normalized:
+                        original_product_name = p
+                        break
+                
                 routes.append({
-                    'product': product,
+                    'product': original_product_name or product_normalized,
                     'from': best_warehouse['name'],
                     'to': enterprise['name'],
                     'volume': transport_volume,
                     'distance': best_distance,
-                    'reason': f'Ближайший склад с запасом {product}. Остаток на складе: {available_volume} м³'
+                    'reason': f'Ближайший склад с запасом {original_product_name or product_normalized}. Остаток на складе: {available_volume} м³'
                 })
                 
-                warehouse_stocks[best_warehouse['id']][product] -= transport_volume
+                warehouse_stocks[best_warehouse['id']][product_normalized] -= transport_volume
+                print(f"=== OPTIMIZE: Created route: {best_warehouse['name']} -> {enterprise['name']}, {original_product_name}, {transport_volume} м³")
+            else:
+                print(f"=== OPTIMIZE: No warehouse found with '{product_normalized}' for {enterprise.get('name')}")
     
     routes.sort(key=lambda r: r['distance'])
     
