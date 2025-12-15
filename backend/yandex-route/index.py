@@ -56,10 +56,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
-    # Яндекс.Маршрутизатор API
-    url = f'https://api.routing.yandex.net/v2/route?apikey={api_key}'
-    url += f'&waypoints={from_lng},{from_lat}|{to_lng},{to_lat}'
-    url += '&mode=driving&avoid_tolls=false'
+    # Используем Directions API через HTTP Geocoder
+    url = f'https://geocode-maps.yandex.ru/1.x/?apikey={api_key}'
+    url += f'&geocode={from_lng},{from_lat}'
+    url += '&format=json&results=1'
     
     try:
         with urllib.request.urlopen(url, timeout=10) as response:

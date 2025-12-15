@@ -96,48 +96,45 @@ export default function MapView() {
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
     routes.forEach((r, i) => {
       if (r.fromLat && r.fromLng && r.toLat && r.toLng) {
-        // Запрос маршрута через Яндекс.Маршрутизатор
-        fetch('https://functions.poehali.dev/92bc3ef0-4965-40f2-8e7e-f8edbe8dd6db', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fromLat: r.fromLat,
-            fromLng: r.fromLng,
-            toLat: r.toLat,
-            toLng: r.toLng
-          })
-        })
-          .then(res => res.json())
-          .then(data => {
-            const polyline = new ymaps.Polyline(
-              data.coordinates || [[r.fromLat, r.fromLng], [r.toLat, r.toLng]],
-              {
-                balloonContent: `<strong>${r.from} → ${r.to}</strong><br/>Объём: ${r.volume} м³<br/>Расстояние: ${data.distance || r.distance} км`
-              },
-              {
-                strokeColor: colors[i % colors.length],
-                strokeWidth: 4,
-                strokeOpacity: 0.8
-              }
-            );
+        // Используем встроенный роутинг Яндекс.Карт (бесплатно, без API-ключа для маршрутизации)
+        ymaps.route([
+          [r.fromLat, r.fromLng],
+          [r.toLat, r.toLng]
+        ], {
+          mapStateAutoApply: false,
+          routingMode: 'auto'
+        }).then((route: any) => {
+          const paths = route.getPaths();
+          if (paths.getLength() > 0) {
+            const path = paths.get(0);
+            const coords = path.geometry.getCoordinates();
+            const distance = (route.getLength() / 1000).toFixed(1);
+            
+            const polyline = new ymaps.Polyline(coords, {
+              balloonContent: `<strong>${r.from} → ${r.to}</strong><br/>Объём: ${r.volume} м³<br/>Расстояние: ${distance} км<br/><small>${r.reason || ''}</small>`
+            }, {
+              strokeColor: colors[i % colors.length],
+              strokeWidth: 4,
+              strokeOpacity: 0.8
+            });
             map.geoObjects.add(polyline);
-          })
-          .catch(() => {
-            // Fallback: прямая линия
-            const polyline = new ymaps.Polyline(
-              [[r.fromLat, r.fromLng], [r.toLat, r.toLng]],
-              {
-                balloonContent: `<strong>${r.from} → ${r.to}</strong><br/>Объём: ${r.volume} м³`
-              },
-              {
-                strokeColor: colors[i % colors.length],
-                strokeWidth: 3,
-                strokeOpacity: 0.6,
-                strokeStyle: 'shortdash'
-              }
-            );
-            map.geoObjects.add(polyline);
-          });
+          }
+        }).catch(() => {
+          // Fallback: прямая линия
+          const polyline = new ymaps.Polyline(
+            [[r.fromLat, r.fromLng], [r.toLat, r.toLng]],
+            {
+              balloonContent: `<strong>${r.from} → ${r.to}</strong><br/>Объём: ${r.volume} м³`
+            },
+            {
+              strokeColor: colors[i % colors.length],
+              strokeWidth: 3,
+              strokeOpacity: 0.6,
+              strokeStyle: 'shortdash'
+            }
+          );
+          map.geoObjects.add(polyline);
+        });
       }
     });
   }, [mapReady, locations, routes]);
