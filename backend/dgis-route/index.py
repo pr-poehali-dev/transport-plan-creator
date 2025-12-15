@@ -55,35 +55,59 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
-    # 2GIS Directions API
-    url = f'https://catalog.api.2gis.com/carrouting/6.0.0/global?key={api_key}'
-    url += f'&start_point={from_lng},{from_lat}&end_point={to_lng},{to_lat}'
+    # 2GIS Routing API (новый формат)
+    url = f'https://routing.api.2gis.com/routing/7.0.0/global?key={api_key}'
+    
+    request_body = {
+        "points": [
+            {"type": "stop", "lon": from_lng, "lat": from_lat},
+            {"type": "stop", "lon": to_lng, "lat": to_lat}
+        ],
+        "transport": "driving",
+        "route_mode": "fastest"
+    }
+    
+    print(f'2GIS request body: {json.dumps(request_body, ensure_ascii=False)}')
     
     try:
-        with urllib.request.urlopen(url, timeout=10) as response:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(request_body).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
         
-        if 'result' not in data or len(data['result']) == 0:
+        print(f'2GIS response: {json.dumps(data, ensure_ascii=False)[:500]}')
+        
+        if 'result' not in data or not isinstance(data['result'], list) or len(data['result']) == 0:
+            print('2GIS: No routes found in response')
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({
                     'coordinates': [[from_lat, from_lng], [to_lat, to_lng]],
                     'distance': 0,
+                    'duration': 0,
                     'fallback': True
                 }),
                 'isBase64Encoded': False
             }
         
-        # Извлекаем координаты маршрута
-        route_data = data['result'][0]
-        total_distance = route_data.get('total_distance', 0) / 1000  # метры -> км
+        # Извлекаем координаты маршрута из нового формата API
+        route = data['result'][0]
+        total_distance = route.get('total_distance', 0) / 1000  # метры -> км
+        total_duration = route.get('total_duration', 0) / 60  # секунды -> минуты
         
         coordinates = []
-        for maneuver in route_data.get('maneuvers', []):
-            if 'outcoming_path' in maneuver and 'geometry' in maneuver['outcoming_path']:
-                for point in maneuver['outcoming_path']['geometry']:
-                    coordinates.append([point['lat'], point['lon']])
+        # Новый формат: legs -> steps -> geometry
+        for leg in route.get('legs', []):
+            for step in leg.get('steps', []):
+                if 'geometry' in step:
+                    for point in step['geometry']:
+                        coordinates.append([point['lat'], point['lon']])
+        
+        print(f'2GIS: Extracted {len(coordinates)} coordinates, distance={total_distance}km')
         
         return {
             'statusCode': 200,
@@ -91,12 +115,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps({
                 'coordinates': coordinates if coordinates else [[from_lat, from_lng], [to_lat, to_lng]],
                 'distance': round(total_distance, 1),
-                'duration': route_data.get('total_duration', 0),
+                'duration': round(total_duration),
                 'fallback': len(coordinates) == 0
             }),
             'isBase64Encoded': False
         }
     
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode() if e.fp else 'No error body'
+        print(f'2GIS API HTTP error {e.code}: {error_body}')
+        return {
+            'statusCode': 200,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({
+                'coordinates': [[from_lat, from_lng], [to_lat, to_lng]],
+                'distance': 0,
+                'fallback': True,
+                'error': f'HTTP {e.code}: {error_body[:200]}'
+            }),
+            'isBase64Encoded': False
+        }
     except Exception as e:
         print(f'2GIS API error: {str(e)}')
         return {
